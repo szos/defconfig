@@ -2,11 +2,6 @@
 
 (in-package #:defcustom)
 
-(defmacro idif (if-then else)
-  (alexandria:with-gensyms (hold)
-    `(let ((,hold ,if-then))
-       (if ,hold ,hold ,else))))
-
 (defun any (thing matches &key (test 'equal))
   (let ((hit (loop for match in matches
 		   if (funcall test thing match)
@@ -23,11 +18,13 @@
 	    :documentation "the package the symbol lives in")
    (tags :initarg :tags :accessor customizable-setting-tags)
    (default-value :initarg :default-value :accessor customizable-setting-default-value)
-   (symbol-documentation :initarg :symbol-doc)
+   (symbol-documentation :initarg :symbol-doc) ; this may be useless - just look up the symbol documentation
+   
    (predicate :initarg :predicate :accessor customizable-setting-predicate)
    (coercer :initarg :coercer :accessor customizable-setting-coercer
 	    :initform nil)
-   (valid-values-fn
+   
+   (valid-values-fn ; this should be removed if we go for a predicate/coercer
     :initarg :validator-fn :accessor customizable-setting-validator-fn
     :documentation "a function to validate values for the symbol symbol in package package")
    (valid-values-rules
@@ -43,6 +40,9 @@
 
 
 (defvar *customizable-settings-hash-table* (make-hash-table :test 'equalp))
+
+(defun add-customizable-setting (id obj db)
+  (setf (gethash id db) obj))
 
 ;;; how to dispatch:
 ;;; We want to dispatch not only on the symbol but on its package. Our customize
@@ -74,12 +74,14 @@
 		    nil))))))
 
 (defun limited-number-predicate-curry (min max &optional inclusive)
+  "this is an example of a function to call to create a function to use as a predicate."
   (lambda (n)
     (if inclusive
 	(and (<= min n) (>= max n))
 	(and (< min n) (> max n)))))
 
-(defun %defcustom-2 (symbol default-value name tags predicate coercer database &key valid-values valid-values-test)
+(defun %defcustom-2 (symbol default-value name tags predicate coercer database
+		     &key valid-values valid-values-test override-anonymous-predicate-description-string)
   (let* ((dispatch-id (make-setting-id-from-symbol symbol))
 	 (colon-string (make-colons-for-dispatch-id dispatch-id))
 	 (real-name (or name (format nil "~A~A~A"
@@ -90,12 +92,31 @@
 	   (if valid-values
 	       (format nil "Valid values are checked with ~S and limited to ~{~S,^ ~}"
 		       valid-values-test valid-values)
+	       ;; the below needs to be changed. its poorly written and confusing. We should aim to regenerate
+	       ;; this documentation if we change the predicate/coercer. This needs to be more dynamic. 
 	       (let ((name (fn-name predicate))
-		     (coerceing-name (or )))
-		 (if (stringp name)
-		     (format nil "Valid values are checked with an anonymous function~S")
-		     (format nil "Valid values are checked with the predicate ~S~S"
-			     ))))))))
+		     (coerceing-name (let ((cname (fn-name coercer)))
+				       (if cname
+					   (format nil ", and if the value fails this predicate coercion will be attempted with ~S" cname))
+				       "")))
+		 (if name
+		     (format nil "Valid values are checked with the predicate ~S~A"
+			     name coerceing-name)
+		     (format nil "Valid values are checked with ~S~A"
+			     (or override-anonymous-predicate-description-string "an anonymous function")
+			     coerceing-name)))))
+	 (instance (make-instance 'customizable-setting
+				  :predicate predicate
+				  :coercer coercer
+				  :valid-values-description rules-description
+				  :package (car dispatch-id)
+				  :symbol  (cdr dispatch-id)
+				  :tags (cons real-name tags)
+				  :name real-name
+				  :default-value default-value)))
+    (add-customizable-setting dispatch-id instance database)))
+
+;; (%defcustom-2 '*test2* 'hi nil '("tests") 'symbolp nil *customizable-settings-hash-table*)
 
 (defmacro defcustom-2 (var val doc &key name tags (predicate 'cl:identity) coercer valid-values valid-values-test
 				     (custom-database '*customizable-settings-hash-table*))
@@ -109,12 +130,16 @@
 				 predicate))
 	   (,value-hold ,val))
        (defparameter ,var ,value-hold ,doc)
-       (%defcustom-2 ))))
+       (%defcustom-2 ',var ,value-hold ,name ,tags ,real-predicate ,coercer ,custom-database
+		     ,@(when valid-values
+			 `(:valid-values ,valid-values))
+		     ,@(when valid-values-test
+			 `(:valid-values-test ,valid-values-test))))))
 
-(defcustom-2 *hi* 'hi
-  "hi"
-  :valid-values '('hi 'ho)
-  :valid-values-test 'equalp)
+;; (defcustom-2 *hi* 'hi
+;;   "hi"
+;;   :valid-values '('hi 'ho)
+;;   :valid-values-test 'equalp)
 
 (defun %defcustom (symbol default-value doc name function database &key rules-description gen-rules comparator tags)
   (let* ((dispatch-id (make-setting-id-from-symbol symbol))
@@ -147,7 +172,7 @@
 							 (cons (symbol-name symbol)
 							       tags))
 					     :name real-name
-					     :default-value default-value
+                                             :default-value default-value
 					     :validator-fn function
 					     :valid-values-description rules-pprint-description
 					     :symbol-doc doc)
@@ -178,11 +203,11 @@
 			 :comparator ,(or test-when-rules-are-list ''equal)))
 		   :tags ,tags))))
 
-(defcustom *test* 1
-  "testing. should only accept numbers 1 2 3 and 4"
-  :validity-rules identity ;; '(1 2 3 4)
-  ;; :test-when-rules-are-list 'equalp
-  )
+;; (defcustom *test* 1
+;;   "testing. should only accept numbers 1 2 3 and 4"
+;;   :validity-rules identity ;; '(1 2 3 4)
+;;   ;; :test-when-rules-are-list 'equalp
+;;   )
 
 ;; (defmacro defcustom (symbol value doc valid-values-rules
 ;; 		     &key name tags
@@ -231,9 +256,6 @@
 ;; 						:symbol-doc ,doc)
 ;; 				 ,custom-database))))
 
-(defun add-customizable-setting (id obj db)
-  (setf (gethash id db) obj))
-
 (define-condition no-valid-customizable-setting (error)
   ((id :initarg :id :reader no-valid-customizable-setting-id)))
 
@@ -249,6 +271,19 @@
 	       value symbol package)))))
 
 (define-condition internal-invalid-value-error (error) ())
+
+;; (defgeneric customizing (place))
+;; (defmethod customizing ((place symbol)))
+
+;; (define-setf-expander customizing (place &environment env)
+;;   )
+;; i dont understand setf-expanders well enough to dig in to this. 
+
+(defmacro %customize-2 (place value db)
+  (alexandria:with-gensyms (hold dispatch-id setting validated)
+    `(let* ((,hold ,value)
+	    (,dispatch-id (make-setting-id-from-symbol ',place))))))
+
 
 (defmacro %customize (symbol value db)
   (alexandria:with-gensyms (hold dispatch-id setting validated)
