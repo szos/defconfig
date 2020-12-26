@@ -1,0 +1,7 @@
+#+TITLE: DEFCUSTOM
+
+* Purpose
+  Defcustom is an attempt at a customization package for common lisp which validates values before setting them. It is designed specifically to constrain dynamic variables to a set of valid values - determined by either a user supplied function or a list of valid values themselves. 
+
+* Wanted
+  I would like to change the implementation from a single function that validates and signals an error if it isnt the propper data to a predicate and (optionally) a coercer. This way we could just check the predicate, if its false signal an error, and wrap the whole thing in a ~handler-case~ which checks if theres a coercer and if there is attempts to coerce the value (within another ~handler-case~ which catches ALL errors) and then passing that coerced value to the predicate again, and if it fails again signal an error which will propagate up to the user. if at any point a value passes the predicate supplied we set the place to the value. Everything should be wrapped up with a restart that will set the value regardless. 
