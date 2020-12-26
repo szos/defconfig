@@ -2,6 +2,11 @@
 
 (in-package #:defcustom)
 
+(defmacro idif (if-then else)
+  (alexandria:with-gensyms (hold)
+    `(let ((,hold ,if-then))
+       (if ,hold ,hold ,else))))
+
 (defun any (thing matches &key (test 'equal))
   (let ((hit (loop for match in matches
 		   if (funcall test thing match)
@@ -19,6 +24,9 @@
    (tags :initarg :tags :accessor customizable-setting-tags)
    (default-value :initarg :default-value :accessor customizable-setting-default-value)
    (symbol-documentation :initarg :symbol-doc)
+   (predicate :initarg :predicate :accessor customizable-setting-predicate)
+   (coercer :initarg :coercer :accessor customizable-setting-coercer
+	    :initform nil)
    (valid-values-fn
     :initarg :validator-fn :accessor customizable-setting-validator-fn
     :documentation "a function to validate values for the symbol symbol in package package")
@@ -60,7 +68,53 @@
   (cond ((and (symbolp symbol-or-function) (fboundp symbol-or-function))
 	 symbol-or-function)
 	((functionp symbol-or-function)
-	 (nth-value 2 (function-lambda-expression symbol-or-function)))))
+	 (let ((fn-name (nth-value 2 (function-lambda-expression symbol-or-function))))
+	   (cond ((symbolp fn-name) fn-name)
+		 (t ;; "anonymous function"
+		    nil))))))
+
+(defun limited-number-predicate-curry (min max &optional inclusive)
+  (lambda (n)
+    (if inclusive
+	(and (<= min n) (>= max n))
+	(and (< min n) (> max n)))))
+
+(defun %defcustom-2 (symbol default-value name tags predicate coercer database &key valid-values valid-values-test)
+  (let* ((dispatch-id (make-setting-id-from-symbol symbol))
+	 (colon-string (make-colons-for-dispatch-id dispatch-id))
+	 (real-name (or name (format nil "~A~A~A"
+				     (package-name (car dispatch-id))
+				     colon-string
+				     (symbol-name symbol))))
+	 (rules-description
+	   (if valid-values
+	       (format nil "Valid values are checked with ~S and limited to ~{~S,^ ~}"
+		       valid-values-test valid-values)
+	       (let ((name (fn-name predicate))
+		     (coerceing-name (or )))
+		 (if (stringp name)
+		     (format nil "Valid values are checked with an anonymous function~S")
+		     (format nil "Valid values are checked with the predicate ~S~S"
+			     ))))))))
+
+(defmacro defcustom-2 (var val doc &key name tags (predicate 'cl:identity) coercer valid-values valid-values-test
+				     (custom-database '*customizable-settings-hash-table*))
+  "if valid-values is provided then predicate is ignored, even if predicate is also provided."
+  (alexandria:with-gensyms (real-predicate arg value-hold)
+    `(let ((,real-predicate ,(if (and valid-values (listp valid-values))
+				 `(lambda (,arg)
+				    (defcustom::any ,arg ,valid-values
+						    :test ,(if valid-values-test valid-values-test
+							       'identity)))
+				 predicate))
+	   (,value-hold ,val))
+       (defparameter ,var ,value-hold ,doc)
+       (%defcustom-2 ))))
+
+(defcustom-2 *hi* 'hi
+  "hi"
+  :valid-values '('hi 'ho)
+  :valid-values-test 'equalp)
 
 (defun %defcustom (symbol default-value doc name function database &key rules-description gen-rules comparator tags)
   (let* ((dispatch-id (make-setting-id-from-symbol symbol))
