@@ -56,7 +56,13 @@
       (:internal "::")
       (:external ":"))))
 
-(defun %defcustom (symbol default-value doc name function database &key rules-description gen-rules tags)
+(defun fn-name (symbol-or-function)
+  (cond ((and (symbolp symbol-or-function) (fboundp symbol-or-function))
+	 symbol-or-function)
+	((functionp symbol-or-function)
+	 (nth-value 2 (function-lambda-expression symbol-or-function)))))
+
+(defun %defcustom (symbol default-value doc name function database &key rules-description gen-rules comparator tags)
   (let* ((dispatch-id (make-setting-id-from-symbol symbol))
 	 (colon-string (make-colons-for-dispatch-id dispatch-id))
 	 (real-name (or name (format nil "~A~A~A"
@@ -67,13 +73,13 @@
 	   (or rules-description 
 	       (cond (gen-rules
 		      (format nil "Valid values are computed with ~S and are limited to ~{~S~^, ~}"
-			      (car gen-rules) (cdr gen-rules)))
+			      comparator gen-rules))
 		     ((and (symbolp function) (fboundp function))
 		      (format nil "Valid values are computed using ~S" function))
 		     ((functionp function)
 		      ;; This is mildly subpar - ideally we could get the function argument types and return types
 		      ;; in order to generate documentation about possible applicable types
-		      (let ((fn-name (nths-value 2 (function-lambda-expression function))))
+		      (let ((fn-name (nth-value 2 (function-lambda-expression function))))
 			(format nil (if (symbolp fn-name)
 					"Valid values are computed using ~S"
 					"Valid values are computed using an anonymous function with signature ~S")
@@ -94,25 +100,35 @@
 			      database)))
 
 (defmacro defcustom (symbol value doc &key (validity-rules 'cl:identity)
-					name tags validity-description (test-when-rules-are-list 'equal)
+					name tags validity-description test-when-rules-are-list
 					(defcustom-expansion 'defparameter)
 					(custom-database '*customizable-settings-hash-table*))
   (alexandria:with-gensyms (validator-function arg holder-for-fn holder-for-val)
     (declare (ignorable arg))
-    `(let ((,validator-function ,(if (symbolp validity-rules)
-				     validity-rules
+    `(let ((,validator-function ,(if (listp validity-rules)
 				     `(lambda (,arg)
-					(let ((,holder-for-fn (defcustom::any ,arg ,validity-rules
-									      :test ,test-when-rules-are-list)))
-					  (if ,holder ,holder
-					      (error 'internal-invalid-value-error))))))
+					(let ((,holder-for-fn
+						(defcustom::any ,arg ,validity-rules
+								:test ,(if test-when-rules-are-list
+									   test-when-rules-are-list
+									   ''equal))))
+					  (if ,holder-for-fn ,holder-for-fn
+					      (error 'internal-invalid-value-error))))
+				     validity-rules))
 	   (,holder-for-val ,value))
        (,defcustom-expansion ,symbol ,holder-for-val)
        (%defcustom ',symbol ,holder-for-val ,doc ,name ,validator-function ,custom-database
 		   ,@(when validity-description `(:rules-description ,validity-description))
 		   ,@(when (listp validity-rules)
-		       `(:gen-rules '(,test-when-rules-are-list ,@validity-rules)))
+		       `(:gen-rules ,validity-rules
+			 :comparator ,(or test-when-rules-are-list ''equal)))
 		   :tags ,tags))))
+
+(defcustom *test* 1
+  "testing. should only accept numbers 1 2 3 and 4"
+  :validity-rules identity ;; '(1 2 3 4)
+  ;; :test-when-rules-are-list 'equalp
+  )
 
 ;; (defmacro defcustom (symbol value doc valid-values-rules
 ;; 		     &key name tags
