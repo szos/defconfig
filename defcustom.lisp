@@ -71,14 +71,21 @@
 		     ((and (symbolp function) (fboundp function))
 		      (format nil "Valid values are computed using ~S" function))
 		     ((functionp function)
-		      ;; This is really subpar - We ideally want to get the name, argslist, type, etc
-		      ;; from the function object and use that do build the documentation. 
-		      (format nil "Valid values are computed using ~S" function))))))
+		      ;; This is mildly subpar - ideally we could get the function argument types and return types
+		      ;; in order to generate documentation about possible applicable types
+		      (let ((fn-name (nths-value 2 (function-lambda-expression function))))
+			(format nil (if (symbolp fn-name)
+					"Valid values are computed using ~S"
+					"Valid values are computed using an anonymous function with signature ~S")
+				fn-name)))
+		     (t (error "An non-function was passed to %defcustom as the validator"))))))
     (add-customizable-setting dispatch-id
 			      (make-instance 'customizable-setting
 					     :package (car dispatch-id)
 					     :symbol (cdr dispatch-id)
-					     :tags (cons real-name tags)
+					     :tags (cons real-name
+							 (cons (symbol-name symbol)
+							       tags))
 					     :name real-name
 					     :default-value default-value
 					     :validator-fn function
@@ -86,52 +93,73 @@
 					     :symbol-doc doc)
 			      database)))
 
-(defmacro defcustom (symbol value doc valid-values-rules
-		     &key name tags
-		       valid-values-description
-		       ;; used iff valid-values-rules isnt a function
-		       (valid-values-rules-test ''equal)
-		       (defcustom-expansion-type 'defparameter)
-		       (custom-database '*customizable-settings-hash-table*))
-  (alexandria:with-gensyms (dispatch-id colons validator-fn rules-description lambda-arg nm
-					hold)
-    `(let* ((,dispatch-id (make-setting-id-from-symbol ',symbol))
-	    (,colons (make-colons-for-dispatch-id ,dispatch-id))
-	    (,nm (or ,name (format nil "~A~A~A"
-				   (package-name (car ,dispatch-id))
-				   ,colons
-				   (symbol-name ',symbol))))
-	    (,validator-fn
-	      (if (listp ,valid-values-rules)
-		  (lambda (,lambda-arg)
-		    (defcustom::any ,lambda-arg ,valid-values-rules
-				    :test ,valid-values-rules-test))
-		  `(if (or (functionp ,valid-values-rules)
-			   (and (symbolp ,valid-values-rules)
-				(fboundp ,valid-values-rules)))
-		       ,valid-values-rules
-		       (error "no valid rules were passed to defcustom"))))
-	    (,rules-description
-	      (or ,valid-values-description
-		  ,(if (listp valid-values-rules)
-		       `(format nil "Valid values are computed with ~S and are limited to ~{~S~^, ~}"
-				,valid-values-rules-test ,valid-values-rules)
-		       `(format nil "Valid values are computed using ~S"
-				,valid-values-rules))))
-	    (,hold ,value))
-       (declare (string ,nm))
-       (,defcustom-expansion-type ,symbol ,hold ,doc)
-       (add-customizable-setting ,dispatch-id
-				 (make-instance 'customizable-setting
-						:package (car ,dispatch-id)
-						:symbol (cdr ,dispatch-id)
-						:tags ',tags
-						:name (or ,nm)
-						:default-value ,hold
-						:validator-fn ,validator-fn
-						:valid-values-description ,rules-description
-						:symbol-doc ,doc)
-				 ,custom-database))))
+(defmacro defcustom (symbol value doc &key (validity-rules 'cl:identity)
+					name tags validity-description (test-when-rules-are-list 'equal)
+					(defcustom-expansion 'defparameter)
+					(custom-database '*customizable-settings-hash-table*))
+  (alexandria:with-gensyms (validator-function arg holder-for-fn holder-for-val)
+    (declare (ignorable arg))
+    `(let ((,validator-function ,(if (symbolp validity-rules)
+				     validity-rules
+				     `(lambda (,arg)
+					(let ((,holder-for-fn (defcustom::any ,arg ,validity-rules
+									      :test ,test-when-rules-are-list)))
+					  (if ,holder ,holder
+					      (error 'internal-invalid-value-error))))))
+	   (,holder-for-val ,value))
+       (,defcustom-expansion ,symbol ,holder-for-val)
+       (%defcustom ',symbol ,holder-for-val ,doc ,name ,validator-function ,custom-database
+		   ,@(when validity-description `(:rules-description ,validity-description))
+		   ,@(when (listp validity-rules)
+		       `(:gen-rules '(,test-when-rules-are-list ,@validity-rules)))
+		   :tags ,tags))))
+
+;; (defmacro defcustom (symbol value doc valid-values-rules
+;; 		     &key name tags
+;; 		       valid-values-description
+;; 		       ;; used iff valid-values-rules isnt a function
+;; 		       (valid-values-rules-test ''equal)
+;; 		       (defcustom-expansion-type 'defparameter)
+;; 		       (custom-database '*customizable-settings-hash-table*))
+;;   (alexandria:with-gensyms (dispatch-id colons validator-fn rules-description lambda-arg nm
+;; 					hold)
+;;     `(let* ((,dispatch-id (make-setting-id-from-symbol ',symbol))
+;; 	    (,colons (make-colons-for-dispatch-id ,dispatch-id))
+;; 	    (,nm (or ,name (format nil "~A~A~A"
+;; 				   (package-name (car ,dispatch-id))
+;; 				   ,colons
+;; 				   (symbol-name ',symbol))))
+;; 	    (,validator-fn
+;; 	      (if (listp ,valid-values-rules)
+;; 		  (lambda (,lambda-arg)
+;; 		    (defcustom::any ,lambda-arg ,valid-values-rules
+;; 				    :test ,valid-values-rules-test))
+;; 		  `(if (or (functionp ,valid-values-rules)
+;; 			   (and (symbolp ,valid-values-rules)
+;; 				(fboundp ,valid-values-rules)))
+;; 		       ,valid-values-rules
+;; 		       (error "no valid rules were passed to defcustom"))))
+;; 	    (,rules-description
+;; 	      (or ,valid-values-description
+;; 		  ,(if (listp valid-values-rules)
+;; 		       `(format nil "Valid values are computed with ~S and are limited to ~{~S~^, ~}"
+;; 				,valid-values-rules-test ,valid-values-rules)
+;; 		       `(format nil "Valid values are computed using ~S"
+;; 				,valid-values-rules))))
+;; 	    (,hold ,value))
+;;        (declare (string ,nm))
+;;        (,defcustom-expansion-type ,symbol ,hold ,doc)
+;;        (add-customizable-setting ,dispatch-id
+;; 				 (make-instance 'customizable-setting
+;; 						:package (car ,dispatch-id)
+;; 						:symbol (cdr ,dispatch-id)
+;; 						:tags ',tags
+;; 						:name (or ,nm)
+;; 						:default-value ,hold
+;; 						:validator-fn ,validator-fn
+;; 						:valid-values-description ,rules-description
+;; 						:symbol-doc ,doc)
+;; 				 ,custom-database))))
 
 (defun add-customizable-setting (id obj db)
   (setf (gethash id db) obj))
