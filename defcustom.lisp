@@ -56,6 +56,36 @@
       (:internal "::")
       (:external ":"))))
 
+(defun %defcustom (symbol default-value doc name function database &key rules-description gen-rules tags)
+  (let* ((dispatch-id (make-setting-id-from-symbol symbol))
+	 (colon-string (make-colons-for-dispatch-id dispatch-id))
+	 (real-name (or name (format nil "~A~A~A"
+				     (package-name (car dispatch-id))
+				     colon-string
+				     (symbol-name symbol))))
+	 (rules-pprint-description
+	   (or rules-description 
+	       (cond (gen-rules
+		      (format nil "Valid values are computed with ~S and are limited to ~{~S~^, ~}"
+			      (car gen-rules) (cdr gen-rules)))
+		     ((and (symbolp function) (fboundp function))
+		      (format nil "Valid values are computed using ~S" function))
+		     ((functionp function)
+		      ;; This is really subpar - We ideally want to get the name, argslist, type, etc
+		      ;; from the function object and use that do build the documentation. 
+		      (format nil "Valid values are computed using ~S" function))))))
+    (add-customizable-setting dispatch-id
+			      (make-instance 'customizable-setting
+					     :package (car dispatch-id)
+					     :symbol (cdr dispatch-id)
+					     :tags (cons real-name tags)
+					     :name real-name
+					     :default-value default-value
+					     :validator-fn function
+					     :valid-values-description rules-pprint-description
+					     :symbol-doc doc)
+			      database)))
+
 (defmacro defcustom (symbol value doc valid-values-rules
 		     &key name tags
 		       valid-values-description
