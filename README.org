@@ -1,11 +1,4 @@
-#+TITLE: DEFCUSTOM
+#+TITLE: DEFCONFIG
 
 * Purpose
-  Defcustom is an attempt at a customization package for common lisp which validates values before setting them. It is designed specifically to constrain dynamic variables to a set of valid values - determined by either a user supplied function or a list of valid values themselves. 
-
-* Wanted
-  I would like to change the implementation from a single function that validates and signals an error if it isnt the propper data to a predicate and (optionally) a coercer. This way we could just check the predicate, if its false signal an error, and wrap the whole thing in a ~handler-case~ which checks if theres a coercer and if there is attempts to coerce the value (within another ~handler-case~ which catches ALL errors) and then passing that coerced value to the predicate again, and if it fails again signal an error which will propagate up to the user. if at any point a value passes the predicate supplied we set the place to the value. Everything should be wrapped up with a restart that will set the value regardless. 
-
-  Additionally, we should change the customize worker function to be a generic, such that we can dispatch based on the type. this would let us do one thing with symbols, and oter tins wit objects of various types, and oter tins wit accessors (suc as slots). 
-
-USE DEFSETF: we could use defsetf create a setf-able expander ~customize~ which would allow us to take the object and do things with it using a generic function AND allow us to 
+  Defconfig is a customization and validation framework for places in CL. Its intended use is to supplement or replace existing ~defvar~ and ~defparameter~ forms with a ~defconfig~ form. This will generate the appropriate ~def(var|parameter)~ form as well as a configuration object which is used to validate values for that place. It can also be used with accessors, either specific to a place or in general, by providing ~(accessorfn *myplace*)~ or ~(accessorfn)~ for the place variable. See examples.lisp for more details. This system provides two macros, ~defconfig~ and ~setv~. ~setv~ can be used in place of setf to validate a value before setting it. ~setf~ can still be used as per usual. 

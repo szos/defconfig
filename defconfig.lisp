@@ -7,8 +7,8 @@
 	    :documentation "The function by which invalid datum will attempt to be coerced")))
 
 (defclass config-info-direct-info ()
-  ((symbol :initarg :symbol :accessor config-info-symbol
-	   :documentation "The symbol which this config info governs. no package information is included")
+  ((place :initarg :place :accessor config-info-place
+	  :documentation "The place which this config info governs.")
    (symbol-package :initarg :package :accessor config-info-symbol-package
 		   :documentation "The package within which the config-info symbol resides")
    (default-value :initarg :default :accessor config-info-default-value
@@ -19,12 +19,14 @@
 	 :documentation "The formal name by which this config-info object can be searched for")
    (tags :initarg :tags :initform '() :accessor config-info-tags
 	 :documentation "Tags which can be used for finding a config-info object")
+   (docstring :initarg :documentation :initform nil :accessor config-info-documentation
+	      :documentation "The docstring for the place being governed. if a variable it is the same as the variables docstring")
    (valid-values :initarg :valid-values :initform :unset :accessor config-info-valid-values-description
 		 :documentation "An explanation of the valid values and predicate function")))
 
 (defclass config-info (config-info-metadata config-info-functions config-info-direct-info) ())
 
-;;; turn valid-values into a string, unless a custom string is provided.
+;;; turn valid-values into a string, unless a custom string is provided. this should be moved into the generation fn
 (defmethod initialize-instance :after ((obj config-info) &key)
   (with-slots (valid-values predicate coercer) obj
     (unless (stringp valid-values)
@@ -38,7 +40,8 @@
 							     (t 'unknown))))
 						    ((symbolp predicate) predicate)
 						    (t 'unknown)))
-				      (if (eql valid-values :unset) ""
+				      (if (eql valid-values :unset)
+					  ""
 					  (case (length valid-values)
 					    ((1) (format nil ", and are limited to ~{~S~^, ~}" valid-values))
 					    ((2) (format nil ", and are limited to ~S and ~S"
@@ -88,44 +91,59 @@
 
 ;;; actual defconfig workers and macros. 
 
-(defun %defconfig (place default &key predicate coercer reinitialize test documentation tags
-				   (db *default-db*))
-  (alexandria:with-gensyms (hold hash validated)
-    `(let* ((,hold ,default)
+(defun %defconfig (place default &key (predicate 'cl::identity predicate-provided-p)
+				   coercer reinitialize documentation tags regen-config
+				   (db '*default-db*) valid-values-list)
+  (alexandria:with-gensyms (hold hash validated obj pred)
+    `(let* ((,pred ,@(if predicate-provided-p
+			 `(,predicate)
+			 `(',predicate)))
+	    (,hold ,default)
 	    (,hash ,(if (listp place) `(car ,db) `(cdr ,db))) ; if place is a list its an accessor
-	    (,validated (funcall ,predicate ,hold))
-	    )
+	    (,validated (funcall ,pred ,hold))
+	    (,obj ,(if (listp place)
+		       `(gethash ',(if (= (length place) 1) (car place) place) ,hash)
+		       `(gethash ',place ,hash))))
        (if ,validated
-	   ,(cond ((and reinitialize (listp place))
-		   `(setf ,place ,hold))
-		  (reinitialize
-		   `(defparameter ,place ,hold ,@(when documentation (list documentation))))
-		  (t `(defvar ,place ,hold ,@(when documentation (list documentation)))))
+	   ,@(cond ((and reinitialize (listp place))
+		    `((setf ,place ,hold)))
+		   (reinitialize
+		    `((defparameter ,place ,hold ,@(when documentation (list documentation)))))
+		   (t (if (listp place)
+			  `(nil)
+			  `((defvar ,place ,hold ,@(when documentation (list documentation)))))))
 	   (error 'invalid-datum-error :place ',place :value ,hold))
-       ,(cond ((listp place) ; we have an accessor 
-	       `(setf (gethash ,(if (= (length place) 1)
-				    (car place)
-				    place)
-			       ,db)
-		      ))))))
+       (when (or (not ,obj) (and ,obj ,regen-config))
+	 (setf ,(if (listp place)
+		    `(gethash ',(if (= (length place) 1) (car place) place) ,hash)
+		    `(gethash ',place ,hash))
+	       (make-instance 'config-info
+			      ,@(when predicate `(:predicate ,pred))
+			      ,@(when coercer `(:coercer ,coercer))
+			      ,@(when documentation `(:documentation ,documentation))
+			      ,@(when tags `(:tags ,tags))
+			      :place ',place
+			      :default ,hold
+			      ,@(when valid-values-list `(:valid-values ,valid-values-list))))))))
 
-(defmacro %defconf-vv-intermediary (place default &key predicate coercer reinitialize documentation tags)
-  (%defconfig place default :predicate predicate :coercer coercer :reinitialize reinitialize
-			    :documentation documentation :tags tags))
+(defmacro %defconf-vv-intermediary (place default &key predicate coercer reinitialize regen-config
+						    documentation tags valid-values-list)
+  (%defconfig place default :predicate predicate :reinitialize reinitialize :tags tags :regen-config regen-config
+			    :coercer coercer :documentation documentation :valid-values-list valid-values-list))
 
-(defmacro defconfig (place default-value &key validator valid-values coercer reinitialize (test 'eql)
+(defmacro defconfig (place default-value &key validator valid-values coercer reinitialize regen-config (test ''eql)
 					   documentation tags)
-  (when (and predicate valid-values)
-    (error "A predicate and valid-values keyargs cannot both be provided to defconfig"))
-  (cond (predicate
+  (when (and validator valid-values)
+    (error "A validator and valid-values keyargs cannot both be provided to defconfig"))
+  (cond (validator
 	 (%defconfig place default-value :predicate validator :coercer coercer :reinitialize reinitialize
-					 :documentation documentation :tags tags))
+					 :documentation documentation :tags tags :regen-config regen-config))
 	(valid-values
 	 `(%defconf-vv-intermediary ,place ,default-value
 				    :predicate (lambda (x) (member x ,valid-values :test ,test))
-				    :coercer coercer :reinitialize reinitialize :documentation documentation
-				    :tags tags))
+				    :coercer ,coercer :reinitialize ,reinitialize :documentation ,documentation
+				    :tags ,tags :regen-config ,regen-config :valid-values-list ,valid-values))
 	
 	(t
-	 (%defconfig place default-value :predicate 'cl::identity :coercer coercer :reinitialize reinitialize
-					 :documentation documentation :tags tags))))
+	 (%defconfig place default-value :coercer coercer :reinitialize reinitialize
+					 :documentation documentation :tags tags :regen-config regen-config))))
