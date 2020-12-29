@@ -1,4 +1,4 @@
-(in-package :defcustom)
+(in-package :defconfig)
 
 (defclass config-info-functions ()
   ((predicate :initarg :predicate :initform #'identity :type (function (*) boolean)
@@ -9,8 +9,6 @@
 (defclass config-info-direct-info ()
   ((place :initarg :place :accessor config-info-place
 	  :documentation "The place which this config info governs.")
-   (symbol-package :initarg :package :accessor config-info-symbol-package
-		   :documentation "The package within which the config-info symbol resides")
    (default-value :initarg :default :accessor config-info-default-value
 		  :documentation "The default value of this config-info object")))
 
@@ -80,6 +78,13 @@
      (with-slots (place-form value coerced-value) c
        (format s "The value ~S is invalid for place ~S, and was coerced to ~S which is also invalid"
 	       value place-form coerced-value)))))
+
+(define-condition no-config-found-error (config-error)
+  ((place-form :initarg :place :reader no-config-found-error-place :initform nil))
+  (:report
+   (lambda (c s)
+     (with-slots (place-form) c
+       (format s "Unable to find config-info for place ~S" place-form)))))
 
 ;;; database
 
