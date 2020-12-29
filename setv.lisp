@@ -29,7 +29,7 @@
 	   (cond (,valid? (setf ,place ,hold))
 		 ((config-info-coercer ,config-info)
 		  (let* ((,coer-hold (funcall (config-info-coercer ,config-info) ,hold))
-			 (,coer-valid? (funcall (config-info-predicateo ,config-info) ,coer-hold)))
+			 (,coer-valid? (funcall (config-info-predicate ,config-info) ,coer-hold)))
 		    (restart-case 
 			(if ,coer-valid?
 			    (setf ,place ,coer-hold)
@@ -50,8 +50,3 @@
   (multiple-value-bind (pairs database) (remove-keys args '(:db))
     `(progn ,@(loop for (place value) on pairs by 'cddr
 		    collect `(%setv ,place ,value ,@(if database (cdr database) '(*default-db*)))))))
-
-;; (setv *x* 2
-;;       *y* 3
-;;       (accessor *var*) 3
-;;       :db *my-db*)
