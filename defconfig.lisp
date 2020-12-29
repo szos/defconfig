@@ -2,8 +2,9 @@
 
 (defclass config-info-functions ()
   ((predicate :initarg :predicate :initform #'identity :type (function (*) boolean)
+              :accessor config-info-predicate
 	      :documentation "The predicate against which valid values are checked")
-   (coercer :initarg :coercer :initform nil
+   (coercer :initarg :coercer :initform nil :accessor config-info-coercer
 	    :documentation "The function by which invalid datum will attempt to be coerced")))
 
 (defclass config-info-direct-info ()
@@ -75,9 +76,9 @@
 		  :reader invalid-coerced-datum-error-value))
   (:report
    (lambda (c s)
-     (with-slots (place-form value coerced-value) c
-       (format s "The value ~S is invalid for place ~S, and was coerced to ~S which is also invalid"
-	       value place-form coerced-value)))))
+     (with-slots (place-form value) c
+       (format s "The value ~S is invalid for place ~S, and was unable to be coerced to a valid value"
+	       value place-form)))))
 
 (define-condition no-config-found-error (config-error)
   ((place-form :initarg :place :reader no-config-found-error-place :initform nil))
