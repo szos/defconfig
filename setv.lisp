@@ -25,14 +25,25 @@
 		   `(or (gethash ',place ,hash)
 			(error 'no-config-found-error :place ',place))))
 	    (,valid? (funcall (config-info-predicate ,config-info) ,hold)))
-       (cond (,valid? (setf ,place ,hold))
-	     ((config-info-coercer ,config-info)
-	      (let* ((,coer-hold (funcall (config-info-coercer ,config-info) ,hold))
-		     (,coer-valid? (funcall (config-info-predicateo ,config-info) ,coer-hold)))
-		(if ,coer-valid?
-		    (setf ,place ,coer-hold)
-		    (error 'invalid-coerced-datum-error :place ',place :value ,hold :coerced-value ,coer-hold))))
-	     (t (error 'invalid-datum-error :place ',place :value ,hold))))))
+       (restart-case
+	   (cond (,valid? (setf ,place ,hold))
+		 ((config-info-coercer ,config-info)
+		  (let* ((,coer-hold (funcall (config-info-coercer ,config-info) ,hold))
+			 (,coer-valid? (funcall (config-info-predicateo ,config-info) ,coer-hold)))
+		    (restart-case 
+			(if ,coer-valid?
+			    (setf ,place ,coer-hold)
+			    (error 'invalid-coerced-datum-error
+				   :place ',place :value ,hold :coerced-value ,coer-hold))
+		      (set-place-to-coerced-value ()
+			:report (lambda (stream)
+				  (format stream "Set ~S to ~S" ',place ,coer-hold))
+			(setf ,place ,coer-hold)))))
+		 (t (error 'invalid-datum-error :place ',place :value ,hold)))
+	 (set-place-to-value ()
+	   :report (lambda (stream)
+		     (format stream "Set ~S to ~S" ',place ,hold))
+	   (setf ,place ,hold))))))
 
 (defmacro setv (&rest args)
   "Setv must get an even number of args - every place must have a value"
