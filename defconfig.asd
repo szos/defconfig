@@ -8,4 +8,6 @@
   :serial t
   :depends-on (#:alexandria)
   :components ((:file "package")
-               (:file "defconfig")))
+               (:file "defconfig")
+	       (:file "setv")
+	       (:file "access")))
