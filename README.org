@@ -1,0 +1,4 @@
+#+TITLE: DEFCONFIG
+
+* Purpose
+  Defconfig is a customization and validation framework for places in CL. Its intended use is to supplement or replace existing ~defvar~ and ~defparameter~ forms with a ~defconfig~ form. This will generate the appropriate ~def(var|parameter)~ form as well as a configuration object which is used to validate values for that place. It can also be used with accessors, either specific to a place or in general, by providing =(accessorfn *myplace*)= or ~(accessorfn)~ for the place variable. See examples.lisp for more details. This system provides two macros, ~defconfig~ and ~setv~. ~setv~ can be used in place of setf to validate a value before setting it. ~setf~ can still be used as per usual. 
