@@ -1,4 +1,4 @@
-(in-package :defcustom)
+(in-package :defconfig)
 
 ;; the simplest example:
 (defconfig *varname* 'dark)
