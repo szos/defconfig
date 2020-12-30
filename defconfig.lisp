@@ -99,11 +99,11 @@
 
 ;;; database
 
-(defun make-customizer-database ()
+(defun make-config-database ()
   "creates a cons of two hash tables, the car for function lookup and the cdr for variable lookup."
   (cons (make-hash-table :test 'equalp) (make-hash-table :test 'equalp)))
 
-(defparameter *default-db* (make-customizer-database))
+(defparameter *default-db* (make-config-database))
 
 ;;; actual defconfig workers and macros. 
 
