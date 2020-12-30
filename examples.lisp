@@ -6,21 +6,21 @@
 ;; every value valid.
 
 ;; more complexe examples. 
-(defconfig *varname* 'dark :valid-values '(dark light) :test 'eql :reinitialize t)
+(defconfig *varname* 'dark :typespec '(member dark light) :reinitialize t :regen-config t)
 ;; the above would expand into a defparameter form and config-info which validates 'dark against the list
 ;; '(dark light) using comparison-fn.
 (defconfig *varname* 'dark :validator 'symbolp)
 ;; the above would expand into a defvar form which validates 'dark using 'symbolp
-(defconfig *varname* :top :valid-values '(:top :bottom :left :right) :coercer 'location-sym-coercer
+(defconfig *varname* :top :typespec '(member :top :bottom :left :right) :coercer 'location-sym-coercer
   :documentation "a variable for locations on screen" :tags '("varname" "*varname*" "location")
-  :reinitialize t)
+  :reinitialize t :regen-config t)
 ;; the above would expand into a defparamter form which validates against the list '(:top :bottom :left :right) and
 ;; if validation fails coercion is attempted on the value and the result validated again. It would have 
 ;; documentation for the variable and a list of tags for searching for the object.
 
 ;;; the following examples would register an object WITHOUT creating a def* form
 
-(defconfig (input-bar-color *default-input-bar*) 'dark :valid-values '(dark light) :test 'eql :reinitialize t)
+(defconfig (input-bar-color *default-input-bar*) 'dark :typespec '(member dark light) :reinitialize t)
 ;; The above would expand into a config-info instance which validates against the list '(dark light) using 'eql.
 ;; because reinitialize is provided, it will also include the form (setf (input-bar-color *default-input-bar*) 'dark)
 ;; this will only validate when the accessor input-bar-color is called on the argument *default-input-bar*
@@ -28,9 +28,14 @@
 ;; the above would expand into a config-info instance which validates using 'symbolp, and doesnt include a setf form
 ;; this will only validate when the accessor input-bar-color is called on an argument that isnt *default-input-bar*
 ;; assuming that no other defconfig forms have been defined. 
-(defconfig (input-bar-location) :top :valid-values
-  '(member :top :bottom :left :right) :coercer 'location-sym-coercer
-  :documentation "a variable for locations on screen" :tags '("input-bar" "bar" "input" "location"))
+(defconfig (input-bar-location) :top :typespec '(member :top :bottom :left :right)
+  :coercer 'location-sym-coercer
+  :documentation "a variable for locations on screen" :tags '("input-bar" "bar" "input" "location")
+  :regen-config t)
+(defconfig (input-bar-location *default-bar*) :top :typespec '(member :top :bottom :left :right :center)
+  :coercer 'location-sym-coercer
+  :documentation "a variable for locations on screen" :tags '("input-bar" "bar" "input" "location")
+  :regen-config t)
 ;; the above will expand into a config-info instance which validates based on the list '(:top :bottom :left :right)
 ;; it will attempt to coerce invalid values using 'location-sym-coercer
 ;; it will be valid for ALL forms beginning (setf (input-bar-location ...) ...), as opposed to the previous examples
