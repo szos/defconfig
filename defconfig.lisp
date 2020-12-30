@@ -29,35 +29,44 @@
 (defmethod initialize-instance :after ((obj config-info) &key)
   (with-slots (valid-values predicate coercer) obj
     (unless (stringp valid-values)
-      (setf valid-values (concatenate 'string
-				      (format nil "Valid values are tested using ~S"
-					      (cond ((functionp predicate)
-						     (let ((fname (nth-value 2 (function-lambda-expression
-										predicate))))
-						       (cond ((symbolp fname) fname)
-							     ((listp fname) (list (car fname) (cadr fname)))
-							     (t 'unknown))))
-						    ((symbolp predicate) predicate)
-						    (t 'unknown)))
-				      (if (eql valid-values :unset)
-					  ""
-					  (case (length valid-values)
-					    ((1) (format nil ", and are limited to ~{~S~^, ~}" valid-values))
-					    ((2) (format nil ", and are limited to ~S and ~S"
-							 (car valid-values) (cadr valid-values)))
-					    (otherwise (format nil ", and are limited to ~{~S~^, ~}, and ~S"
-							       (butlast valid-values) (car (last valid-values))))))
-				      (if coercer
-					  (format nil ". Coercion is attempted on invalid values using ~S"
-						  (cond ((functionp coercer)
-							 (let ((fname (nth-value 2 (function-lambda-expression
-										    coercer))))
-							   (cond ((symbolp fname) fname)
-								 ((listp fname) (list (car fname) (cadr fname)))
-								 (t 'unknown))))
-							((symbolp coercer) coercer)
-							(t 'unknown)))
-					  ""))))))
+      (cond ((eql :unset valid-values)
+	     (setf valid-values 
+		   (concatenate 'string
+				(format nil "Valid values are tested using ~S"
+					(cond ((functionp predicate)
+					       (let ((fname (nth-value 2 (function-lambda-expression
+									  predicate))))
+						 (cond ((symbolp fname) fname)
+						       ((listp fname) (list (car fname) (cadr fname)))
+						       (t 'unknown))))
+					      ((symbolp predicate) predicate)
+					      (t 'unknown-predicate)))
+				(if coercer
+				    (format nil ". Coercion is attempted on invalid values using ~S."
+					    (cond ((functionp coercer)
+						   (let ((fname (nth-value 2 (function-lambda-expression
+									      coercer))))
+						     (cond ((symbolp fname) fname)
+							   ((listp fname) (list (car fname) (cadr fname)))
+							   (t 'unknown))))
+						  ((symbolp coercer) coercer)
+						  (t 'unknown-coercer)))
+				    "."))))
+	    (t
+	     (setf valid-values
+		   (concatenate 'string
+				(format nil "Valid values must conform to type specifier ~S" valid-values)
+				(if coercer
+				    (format nil ". Coercion is attempted on invalid values using ~S."
+					    (cond ((functionp coercer)
+						   (let ((fname (nth-value 2 (function-lambda-expression
+									      coercer))))
+						     (cond ((symbolp fname) fname)
+							   ((listp fname) (list (car fname) (cadr fname)))
+							   (t 'unknown))))
+						  ((symbolp coercer) coercer)
+						  (t 'unknown-coercer)))
+				    "."))))))))
 
 ;;; Set up conditions
 
@@ -81,7 +90,8 @@
 	       value place-form)))))
 
 (define-condition no-config-found-error (config-error)
-  ((place-form :initarg :place :reader no-config-found-error-place :initform nil))
+  ((place-form :initarg :place :reader no-config-found-error-place :initform nil)
+   (database :initarg :db :reader no-config-found-error-db :initform nil))
   (:report
    (lambda (c s)
      (with-slots (place-form) c
@@ -137,18 +147,18 @@
   (%defconfig place default :predicate predicate :reinitialize reinitialize :tags tags :regen-config regen-config
 			    :coercer coercer :documentation documentation :valid-values-list valid-values-list))
 
-(defmacro defconfig (place default-value &key validator valid-values coercer reinitialize regen-config (test ''eql)
-					   documentation tags)
-  (when (and validator valid-values)
-    (error "A validator and valid-values keyargs cannot both be provided to defconfig"))
+(defmacro defconfig (place default-value
+		     &key validator typespec coercer reinitialize regen-config documentation tags)
+  (when (and validator typespec)
+    (error "A validator and typespec keyargs cannot both be provided to defconfig"))
   (cond (validator
 	 (%defconfig place default-value :predicate validator :coercer coercer :reinitialize reinitialize
 					 :documentation documentation :tags tags :regen-config regen-config))
-	(valid-values
+	(typespec
 	 `(%defconf-vv-intermediary ,place ,default-value
-				    :predicate (lambda (x) (member x ,valid-values :test ,test))
+				    :predicate (lambda (x) (typep x ,typespec))
 				    :coercer ,coercer :reinitialize ,reinitialize :documentation ,documentation
-				    :tags ,tags :regen-config ,regen-config :valid-values-list ,valid-values))
+				    :tags ,tags :regen-config ,regen-config :valid-values-list ,typespec))
 	
 	(t
 	 (%defconfig place default-value :coercer coercer :reinitialize reinitialize
