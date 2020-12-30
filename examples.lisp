@@ -54,3 +54,28 @@
 ;;; Should documentation be provided in a parameter/var producing defconfig form then the documentation should be
 ;;; both spliced in to the def* form AND added to the config-info object.
 ;;; should it be provided in an accessor defconfig, it will only be added to the config-info object.
+
+
+;;;; Some Common Use Cases
+;;;; If you have a use case you feel is common, feel free to add it here
+
+;;; Bounded Numbers
+;; sometimes you might want to have a bounded number - for example a counter that shouldnt exceed a certain value.
+;; we can use defconfig and setv to ensure that it isnt exceeded in two ways - typespec or a predicate.
+;; for this use case, typespec is the easiest.
+(defconfig *bounded-number* 0 :typespec '(integer 0 10)
+  :documentation "A number with the bounds 0 to 10 inclusive"
+  :tags '("bounded number" "integer"))
+
+;;; Matching Specific Strings
+;; You might want to check if a string is formatted propperly - here typespec is insufficient.
+;; one example of this is to make sure that StumpWM mode line strings only contain valid formatters
+(defun valid-formatter? (string) t) ; lets ignore this for now
+(defun validate-stump-mode-line (string)
+  (loop for (c1 c2) on (coerce string 'list)
+	if (and (char= c1 #\%)
+		(not (valid-formatter? (coerce (list c1 c2) 'string))))
+	  do (return-from validate-stump-mode-line nil))
+  t)
+(defconfig stumpwm::*screen-mode-line-format* "[^B%n^b] %W" :validator 'validate-stump-mode-line
+  :tags '("stumpwm" "mode-line" "mode-line-format"))
