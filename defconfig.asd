@@ -1,4 +1,4 @@
-;;;; defcustom.asd
+;;;; defconfig.asd
 
 (asdf:defsystem #:defconfig
   :description "Describe defconfig here"
@@ -11,3 +11,5 @@
                (:file "defconfig")
 	       (:file "setv")
 	       (:file "access")))
+
+
