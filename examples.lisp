@@ -62,10 +62,13 @@
 ;;; Bounded Numbers
 ;; sometimes you might want to have a bounded number - for example a counter that shouldnt exceed a certain value.
 ;; we can use defconfig and setv to ensure that it isnt exceeded in two ways - typespec or a predicate.
-;; for this use case, typespec is the easiest.
+;; for this use case, typespec is the easiest. We will also supply a coercer, on the off chance someone tries to set
+;; this to a string.
 (defconfig *bounded-number* 0 :typespec '(integer 0 10)
+  :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
   :documentation "A number with the bounds 0 to 10 inclusive"
-  :tags '("bounded number" "integer"))
+  :tags '("bounded number" "integer")
+  :reinitialize t :regen-config t)
 
 ;;; Matching Specific Strings
 ;; You might want to check if a string is formatted propperly - here typespec is insufficient.
@@ -77,5 +80,5 @@
 		(not (valid-formatter? (coerce (list c1 c2) 'string))))
 	  do (return-from validate-stump-mode-line nil))
   t)
-(defconfig stumpwm::*screen-mode-line-format* "[^B%n^b] %W" :validator 'validate-stump-mode-line
+(defconfig *screen-mode-line-format* "[^B%n^b] %W" :validator 'validate-stump-mode-line
   :tags '("stumpwm" "mode-line" "mode-line-format"))
