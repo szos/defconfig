@@ -51,3 +51,19 @@
     `(progn ,@(loop for (place value) on pairs by 'cddr
 		    collect `(%setv ,place ,value ,@(if database (cdr database) '(*default-db*)))))))
 
+(defmacro setv-atomic (&rest args)
+  "this version of setv saves the original value of the places being set, and resets all to their original 
+value if an error is encountered."
+  (multiple-value-bind (pairs db) (remove-keys args '(:db))
+    (let ((syms (loop for (p v) on pairs by 'cddr collect (gensym))))
+      `(let ,(loop for (place value) on pairs by 'cddr
+		   for gensym in syms
+		   collect `(,gensym ,place))
+	 (handler-case
+	     (progn ,@(loop for (place value) on pairs by 'cddr
+			    collect `(%setv ,place ,value ,@(if db (cdr db) '(*default-db*)))))
+	   (error (c)
+	     ,@(loop for (place value) on pairs by 'cddr
+		     for gensym in syms
+		     collect `(setf ,place ,gensym))))))))
+
