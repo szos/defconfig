@@ -3,7 +3,7 @@
 * Purpose
   Defconfig is a customization and validation framework for places in CL. Its intended use is to supplement or replace existing ~defvar~ and ~defparameter~ forms with a ~defconfig~ form. This will generate the appropriate ~def(var|parameter)~ form as well as a configuration object which is used to validate values for that place. It can also be used with accessors, either specific to a place or in general, by providing =(accessorfn *myplace*)= or ~(accessorfn)~ for the place variable. See examples.lisp for more details. This system provides two macros, ~defconfig~ and ~setv~. ~setv~ can be used in place of setf to validate a value before setting it. ~setf~ can still be used as per usual. 
 
-* Usage
+* Macros
 ** Defconfig
    The ~defconfig~ macro generates a config-info object and registers it in a database. The signature is *defconfig* /place default-value &key validator valid-values coercer reinitialize regen-config test documentation tags/ => /config-info/
 *** Arguments and Values
@@ -27,3 +27,20 @@
      the docstring for /place/, stored in the config-info object. If place is a variable, then the appropriate ~def(var|parameter)~ form is generated to use it. 
 **** tags
      These are used for searching for a config-info object. 
+** Setv
+   The ~setv~ macro expands into multiple calls to ~%setv~, which validates a value before setting the place to it. It functions the same as ~setf~, but accepts the keyword ~:db~ to specify a database other than the default one provided by ~defconfig~. 
+** Setv-atomic
+   The ~setv-atomic~ macro functions the same as ~setv~, but if any errors are encountered all places are reset to their original value. 
+** Reset-place 
+   The ~reset-place~ macro resets the place to the default value provided by the corresponding config-info object found within the database. If no object is found ~no-config-found-error~ is signalled.
+
+* Functions
+** make-config-database 
+   This function takes no arguments and returns a config database. 
+* Errors
+** Invalid-datum-error  
+   This error is signalled if one tries to set a place to an invalid value. 
+** invalid-coerced-datum-error
+   This error is signalled instead of ~invalid-datum-error~ when a place has a coercer registered for it. It inherits from ~invalid-datum-error~. 
+** no-config-found-error
+   This error is signalled if a place has no config registered for it. 
