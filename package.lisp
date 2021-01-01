@@ -4,9 +4,9 @@
   (:use #:cl)
   (:export defconfig
 	   setv
-	   place->config-info
+           ;; place->config-info
 	   config-info-search
-	   *default-db*
+	   ;; *default-db*
 	   invalid-datum-error
 	   invalid-coerced-datum-error
 	   no-config-found-error
