@@ -1,17 +1,37 @@
 (in-package :defconfig)
 
-(defun remove-keys (list keys-to-remove)
-  "list must be an even length"
-  (let ((return-list nil)
-	(removed-keys nil))
-    (loop for (k v) on list by 'cddr
-	  if (member k keys-to-remove)
-	    do (push k removed-keys)
-	       (push v removed-keys)
-	  else do (push k return-list)
-		  (push v return-list))
-    (values (reverse return-list)
-	    (reverse removed-keys))))
+(defun remove-keys (list keys)
+  "returns two values - accumulated non-keys and keys "
+  (labels ((wanted-key-p (thing)
+	     (loop for el in keys
+		   for keys-key = (if (listp el) (car el) el)
+		   when (eql keys-key thing)
+		     do (return-from wanted-key-p t)))
+	   (churn (list accum-rest accum-keys)
+	     (cond ((not list)
+		    (values (reverse accum-rest)
+			    (reverse accum-keys)))
+		   ((wanted-key-p (car list))
+		    (churn (cddr list) accum-rest
+			   (cons (cadr list)
+				 (cons (car list) accum-keys))))
+		   (t (churn (cdr list) (cons (car list) accum-rest) accum-keys)))))
+    (churn list nil nil)))
+
+(defmacro destructuring-keys ((var &rest keys) list &body body)
+  "separates keys from list, storing the remainder in var, and making each key a variable via
+destructuring-bind."
+  (alexandria:with-gensyms (key-hold)
+    `(multiple-value-bind (,var ,key-hold) (remove-keys ,list ',keys)
+       (destructuring-bind (&key ,@(loop for k in keys
+					 if (listp k)
+					   collect (cons (read-from-string
+							  (symbol-name (car k)))
+							 (cdr k))
+					 else 
+					   collect (read-from-string (symbol-name k))))
+	   ,key-hold
+	 ,@body))))
 
 (defmacro %setv (place value db)
   (alexandria:with-gensyms (hold hash config-info valid? coer-hold coer-valid?)
@@ -47,9 +67,9 @@
 
 (defmacro setv (&rest args)
   "Setv must get an even number of args - every place must have a value"
-  (multiple-value-bind (pairs database) (remove-keys args '(:db))
-    `(progn ,@(loop for (place value) on pairs by 'cddr
-		    collect `(%setv ,place ,value ,@(if database (cdr database) '(*default-db*)))))))
+  (destructuring-keys (pairs (:db '*default-db*)) args
+    `(progn ,@(loop for (p v) on pairs by 'cddr
+		    collect `(%setv ,p ,v ,db)))))
 
 (defmacro setv-atomic (&rest args)
   "this version of setv saves the original value of the places being set, and resets all to their original 
@@ -65,5 +85,5 @@ value if an error is encountered."
 	   (error (c)
 	     ,@(loop for (place value) on pairs by 'cddr
 		     for gensym in syms
-		     collect `(setf ,place ,gensym))))))))
-
+		     collect `(setf ,place ,gensym))
+	     c))))))
