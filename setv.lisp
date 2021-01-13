@@ -108,24 +108,16 @@ value if an error is encountered."
 
 (defmacro %atomic-setv (block-name &rest args)
   (declare (special *setv-place-accumulator*))
-  (print *setv-place-accumulator*)
   (destructuring-keys (pairs (:db '*default-db*)) args
     `(progn ,@(loop for (p v) on pairs by 'cddr
 		    collect `(%setv-with-reset ,block-name ,p ,v ,db)))))
 
-(defmacro with-atomic-setv (&body body)
+(defmacro with-atomic-setv (() &body body)
+  "This macro causes every call to setv to, on an invalid value, reset the place in 
+question to its previous value."
   (alexandria:with-gensyms (args block-name)
     `(compiler-let ((*setv-place-accumulator* nil))
-       (block ;; with-atomic-setv-block
-	   ,block-name
+       (block ,block-name
 	 (macrolet ((setv (&rest ,args)
-		      `(%atomic-setv ;; with-atomic-setv-block
-			,',block-name
-			,@,args)))
+		      `(%atomic-setv ,',block-name ,@,args)))
 	   ,@body)))))
-
-;; (with-atomic-setv
-;;   (format t "light~%")
-;;   (setv *varname* 'light)
-;;   (format t "goodbye~%")
-;;   (setv *varname* 'goodbye))
