@@ -11,7 +11,9 @@
   ((place :initarg :place :accessor config-info-place
 	  :documentation "The place which this config info governs.")
    (default-value :initarg :default :accessor config-info-default-value
-		  :documentation "The default value of this config-info object")))
+		  :documentation "The default value of this config-info object")
+   (prev-value :initarg :previous :accessor config-info-prev-value
+	       :documentation "holds the value previously assigned to the config-info object. initially the same as default-value")))
 
 (defclass config-info-metadata ()
   ((name :initarg :name :initform "Unnamed config-info object" :accessor config-info-name
@@ -28,6 +30,8 @@
 ;;; turn valid-values into a string, unless a custom string is provided. this should be moved into the generation fn
 (defmethod initialize-instance :after ((obj config-info) &key)
   (with-slots (valid-values predicate coercer) obj
+    (unless (slot-boundp obj 'prev-value)
+      (setf (slot-value obj 'prev-value) (slot-value obj 'default-value)))
     (unless (stringp valid-values)
       (cond ((eql :unset valid-values)
 	     (setf valid-values 

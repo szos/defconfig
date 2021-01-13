@@ -46,24 +46,28 @@ destructuring-bind."
 			(error 'no-config-found-error :place ',place :db ',db))))
 	    (,valid? (funcall (config-info-predicate ,config-info) ,hold)))
        (restart-case
-	   (cond (,valid? (setf ,place ,hold))
+	   (cond (,valid? (psetf (config-info-prev-value ,config-info) ,place
+				 ,place ,hold))
 		 ((config-info-coercer ,config-info)
 		  (let* ((,coer-hold (funcall (config-info-coercer ,config-info) ,hold))
 			 (,coer-valid? (funcall (config-info-predicate ,config-info) ,coer-hold)))
 		    (restart-case 
 			(if ,coer-valid?
-			    (setf ,place ,coer-hold)
+			    (psetf (config-info-prev-value ,config-info) ,place
+				   ,place ,coer-hold)
 			    (error 'invalid-coerced-datum-error
 				   :place ',place :value ,hold :coerced-value ,coer-hold))
 		      (set-place-to-coerced-value ()
 			:report (lambda (stream)
 				  (format stream "Set ~S to ~S" ',place ,coer-hold))
-			(setf ,place ,coer-hold)))))
+			(psetf (config-info-prev-value ,config-info) ,place
+			       ,place ,coer-hold)))))
 		 (t (error 'invalid-datum-error :place ',place :value ,hold)))
 	 (set-place-to-value ()
 	   :report (lambda (stream)
 		     (format stream "Set ~S to ~S" ',place ,hold))
-	   (setf ,place ,hold))))))
+	   (psetf (config-info-prev-value ,config-info) ,place
+		  ,place ,hold))))))
 
 (defmacro setv (&rest args)
   "Setv must get an even number of args - every place must have a value"
@@ -91,8 +95,16 @@ value if an error is encountered."
 (defmacro %atomic-setv-reset (db)
   (declare (special *setv-place-accumulator*))
   (let ((place-list *setv-place-accumulator*))
-    `(progn ,@(loop for place in place-list
-		    collect `(reset-place ,place :db ,db)))))
+    `(progn ,@(loop for place in (cdr place-list)
+		    collect `(reset-place ,place :db ,db :previous-value t)))))
+
+(defmacro %setv-with-reset (block-name place value db)
+  (declare (special *setv-place-accumulator*))
+  (push place *setv-place-accumulator*)
+  `(handler-case `(%setv ,place ,value ,db)
+     (error ()
+       (%atomic-setv-reset ,db)
+       (return-from ,block-name))))
 
 (defmacro %atomic-setv (block-name &rest args)
   (declare (special *setv-place-accumulator*))
@@ -101,25 +113,22 @@ value if an error is encountered."
 	unless (eql place :db)
 	  collect (push place *setv-place-accumulator*))
   (destructuring-keys (pairs (:db '*default-db*)) args
-    `(handler-case (progn ,@(loop for (p v) on pairs by 'cddr
-				  collect `(%setv ,p ,v ,db)))
-       (error ()
-	 (%atomic-setv-reset ,db)
-	 (return-from ,block-name)))))
+    `(progn ,@(loop for (p v) on pairs by 'cddr
+		    collect `(%setv-with-reset ,block-name ,p ,v ,db)))))
 
 (defmacro with-atomic-setv (&body body)
   (alexandria:with-gensyms (args block-name)
-    `(compiler-let (*setv-place-accumulator*)
+    `(compiler-let ((*setv-place-accumulator* nil))
        (block ;; with-atomic-setv-block
 	   ,block-name
 	 (macrolet ((setv (&rest ,args)
 		      `(%atomic-setv ;; with-atomic-setv-block
-				     ,',block-name
-				     ,@,args)))
+			,',block-name
+			,@,args)))
 	   ,@body)))))
 
-(with-atomic-setv
-  (format t "light~%")
-  (setv *varname* 'light)
-  (format t "goodbye~%")
-  (setv *varname* 'goodbye))
+;; (with-atomic-setv
+;;   (format t "light~%")
+;;   (setv *varname* 'light)
+;;   (format t "goodbye~%")
+;;   (setv *varname* 'goodbye))
