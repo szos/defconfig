@@ -82,3 +82,38 @@
   t)
 (defconfig *screen-mode-line-format* "[^B%n^b] %W" :validator 'validate-stump-mode-line
   :tags '("stumpwm" "mode-line" "mode-line-format"))
+
+
+
+;;; WITH-ATOMIC-SETV
+
+;; this macro resets all setv'd places on encountering any error
+;; all examples use the following defconfig definitions
+(defconfig *varname* :top :typespec '(member :top :bottom :left :right) ;; :coercer 'location-sym-coercer
+  :documentation "a variable for locations on screen" :tags '("varname" "*varname*" "location")
+  :reinitialize t :regen-config t)
+(defconfig *varname2* :top :typespec '(member :top :bottom :left :right) ;; :coercer 'location-sym-coercer
+  :documentation "a variable for locations on screen" :tags '("varname" "*varname*" "location")
+  :reinitialize t :regen-config t)
+
+;; for example, the following wont modify *varname* or *varname2*, as :center is forbidden
+;; however, it will technically modify *varname*, it just resets it upon encountering the
+;; error with *varname2*.
+(with-atomic-setv ()
+  (setv *varname* :bottom)
+  (setv *varname2* :center))
+
+;; but this example will modify both. 
+(with-atomic-setv ()
+  (setv *varname* :bottom)
+  (setv *varname2* :right))
+
+;; errors signalled outside of setv forms wont reset variables. thusly this example leaves
+;; *varname2* bound to :right (assuming your evaluating these examples one after the other)
+;; while *varname* gets bound to :left, unless a continue restart is put in place  around error
+(with-atomic-setv ()
+  (setv *varname* :left)
+  (error "some error!")
+  (setv *varname2* :bottom))
+
+
