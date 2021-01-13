@@ -94,14 +94,14 @@ value if an error is encountered."
 
 (defmacro %atomic-setv-reset (db)
   (declare (special *setv-place-accumulator*))
-  (let ((place-list *setv-place-accumulator*))
-    `(progn ,@(loop for place in (cdr place-list)
+  (let ((place-list (cdr *setv-place-accumulator*)))
+    `(progn ,@(loop for place in place-list
 		    collect `(reset-place ,place :db ,db :previous-value t)))))
 
 (defmacro %setv-with-reset (block-name place value db)
   (declare (special *setv-place-accumulator*))
   (push place *setv-place-accumulator*)
-  `(handler-case `(%setv ,place ,value ,db)
+  `(handler-case (%setv ,place ,value ,db)
      (error ()
        (%atomic-setv-reset ,db)
        (return-from ,block-name))))
@@ -109,9 +109,6 @@ value if an error is encountered."
 (defmacro %atomic-setv (block-name &rest args)
   (declare (special *setv-place-accumulator*))
   (print *setv-place-accumulator*)
-  (loop for (place value) on args by #'cddr
-	unless (eql place :db)
-	  collect (push place *setv-place-accumulator*))
   (destructuring-keys (pairs (:db '*default-db*)) args
     `(progn ,@(loop for (p v) on pairs by 'cddr
 		    collect `(%setv-with-reset ,block-name ,p ,v ,db)))))
