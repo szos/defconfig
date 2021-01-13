@@ -52,12 +52,14 @@ symbols representing an accessor and a place."
 	((or (symbolp term) (listp term))
 	 (place->config-info term :db db))))
 
-(defmacro reset-place (place &key (db '*default-db*))
+(defmacro reset-place (place &key (db '*default-db*) previous-value)
   "looks up a place "
   (alexandria:with-gensyms (obj)
     `(let ((,obj (place->config-info ',place :db ,db)))
        (if ,obj
-	   (setf ,place (config-info-default-value ,obj))
+	   (setf ,place ,(if previous-value
+			     `(config-info-prev-value ,obj)
+			     `(config-info-default-value ,obj)))
 	   (error 'no-config-found-error :place ',place :db ',db)))))
 
 
