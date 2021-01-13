@@ -87,3 +87,53 @@ value if an error is encountered."
 		     for gensym in syms
 		     collect `(setf ,place ,gensym))
 	     c))))))
+
+(defmacro %atomic-setv-reset (db)
+  (declare (special *setv-place-accumulator*))
+  (let ((place-list *setv-place-accumulator*))
+    `(progn ,@(loop for place in place-list
+		    collect `(reset-place ,place :db ,db)))))
+
+(defmacro %atomic-setv (block-name &rest args)
+  (declare (special *setv-place-accumulator*))
+  (print *setv-place-accumulator*)
+  (loop for (place value) on args
+	unless (eql place :db)
+	  collect (push place *setv-place-accumulator*))
+  (destructuring-keys (pairs (:db '*default-db*)) args
+    `(handler-case (progn ,@(loop for (p v) on pairs by 'cddr
+				  collect `(%setv ,p ,v ,db)))
+       (error ()
+	 (%atomic-setv-reset ,db)
+	 (return-from ,block-name)))))
+
+(defmacro %%atomic-setv (block-name &rest args)
+  (destructuring-keys (pairs (:db '*default-db*)) args
+    `(handler-case (progn ,@(loop for (p v) on pairs by 'cddr
+				  collect `(%setv ,p ,v ,db)))
+       (error ()
+	 (%atomic-setv-reset ,db)
+	 (return-from ,block-name)))))
+
+(%%atomic-setv 'block-name *varname* 'light)
+
+(defmacro with-atomic-setv (&body body)
+  (alexandria:with-gensyms (;; args
+			    block-name)
+    `(compiler-let (*setv-place-accumulator*)
+       (block with-atomic-setv-block ;; ,block-name
+	 (macrolet ((setv (&rest args)
+		      `(%atomic-setv ,',block-name ,@args)))
+	   ,@body)))))
+
+(with-atomic-setv
+  (format t "light~&")
+  (%atomic-setv 'with-atomic-setv-block *varname* 'light)
+  (format t "goodbye~&")
+  (%atomic-setv 'with-atomic-setv-block *varname* 'goodbye))
+
+(with-atomic-setv
+  (format t "light")
+  (setv *varname* 'light)
+  (format t "goodbye")
+  (setv *varname* 'goodbye))
