@@ -6,7 +6,7 @@
   :license  "Specify license here"
   :version "0.0.1"
   :serial t
-  :depends-on (#:alexandria)
+  :depends-on (#:alexandria #:trivial-cltl2)
   :components ((:file "package")
                (:file "defconfig")
 	       (:file "setv")

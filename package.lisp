@@ -2,12 +2,13 @@
 
 (defpackage #:defconfig
   (:use #:cl)
-  (:export defconfig
-	   setv
+  (:import-from #:trivial-cltl2 #:compiler-let)
+  (:export #:defconfig
+	   #:setv
            ;; place->config-info
-	   config-info-search
+	   #:config-info-search
 	   ;; *default-db*
-	   invalid-datum-error
-	   invalid-coerced-datum-error
-	   no-config-found-error
-	   make-config-database))
+	   #:invalid-datum-error
+	   #:invalid-coerced-datum-error
+	   #:no-config-found-error
+	   #:make-config-database))
