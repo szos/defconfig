@@ -1,7 +1,8 @@
 (in-package :defconfig)
 
 (defclass config-info-functions ()
-  ((predicate :initarg :predicate :initform #'identity :type (function (*) boolean)
+  ((predicate :initarg :predicate :initform #'identity
+	      :type (function (*) boolean)
               :accessor config-info-predicate
 	      :documentation "The predicate against which valid values are checked")
    (coercer :initarg :coercer :initform nil :accessor config-info-coercer
@@ -163,7 +164,6 @@
 				    :predicate (lambda (x) (typep x ,typespec))
 				    :coercer ,coercer :reinitialize ,reinitialize :documentation ,documentation
 				    :tags ,tags :regen-config ,regen-config :valid-values-list ,typespec))
-	
 	(t
 	 (%defconfig place default-value :coercer coercer :reinitialize reinitialize
 					 :documentation documentation :tags tags :regen-config regen-config))))
