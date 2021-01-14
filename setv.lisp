@@ -1,7 +1,7 @@
 (in-package :defconfig)
 
 (define-condition setv-wrapped-error (error)
-  ((condition :initarg :error :accessor atomic-setv-wrapped-error))
+  ((condition :initarg :error :accessor setv-wrapped-error-condition))
   (:report
    (lambda (c s)
      (with-slots (condition) c
@@ -121,10 +121,12 @@ value if an error is encountered. the error is then resignalled"
 		       collect `(setf ,place ,gensym))
 	       (error ,c))))))))
 
-(defmacro %atomic-setv-reset ()
+(defmacro %atomic-setv-reset (&key (pop t))
   "this macro resets all encountered places within a call to with-atomic-setv."
   (declare (special *setv-place-accumulator*))
-  (let ((place-list (cdr *setv-place-accumulator*)))
+  (let ((place-list (if pop
+			(cdr *setv-place-accumulator*)
+			*setv-place-accumulator*)))
     `(progn ,@(loop for (db place) in place-list
 		    collect `(reset-place ,place :db ,db :previous-value t)))))
 
@@ -157,7 +159,7 @@ question to its previous value."
 				`(%atomic-setv ,',block-name ,@,args)))
 		     (handler-case (progn ,@body)
 		       (error (,inner-c)
-			 (%atomic-setv-reset)
+			 (%atomic-setv-reset :pop nil)
 			 (return-from ,block-name ,inner-c)))))))
 	 (if (and (typep ,c 'error) ,re-error)
 	     (error 'setv-wrapped-error :error ,c)
