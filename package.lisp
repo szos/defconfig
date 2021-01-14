@@ -11,4 +11,5 @@
 	   #:invalid-datum-error
 	   #:invalid-coerced-datum-error
 	   #:no-config-found-error
-	   #:make-config-database))
+	   #:make-config-database
+	   #:reset-place))
