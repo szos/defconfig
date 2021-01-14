@@ -147,25 +147,34 @@
 			      :default ,hold
 			      ,@(when valid-values-list `(:valid-values ,valid-values-list))))))))
 
-(defmacro %defconf-vv-intermediary (place default &key predicate coercer reinitialize regen-config
-						    documentation tags valid-values-list db)
-  (%defconfig place default :predicate predicate :reinitialize reinitialize :tags tags :regen-config regen-config
-			    :coercer coercer :documentation documentation :valid-values-list valid-values-list :db db))
+(defmacro %defconf-vv-intermediary (place default &key predicate coercer
+						    reinitialize regen-config
+						    documentation tags db
+						    valid-values-list)
+  (%defconfig place default :predicate predicate :reinitialize reinitialize
+			    :tags tags :regen-config regen-config
+			    :coercer coercer :documentation documentation
+			    :valid-values-list valid-values-list :db db))
 
-(defmacro defconfig (place default-value
-		     &key validator typespec coercer reinitialize regen-config documentation tags
-		       (db '*default-db*))
+(defmacro defconfig (place default-value &key validator typespec coercer
+					   reinitialize regen-config
+					   documentation tags (db '*default-db*))
   (when (and validator typespec)
     (error "A validator and typespec keyargs cannot both be provided to defconfig"))
   (cond (validator
-	 `(%defconfig place default-value :predicate ,validator :coercer ,coercer :reinitialize ,reinitialize
-					  :documentation ,documentation :tags ,tags :regen-config ,regen-config
-					  :db ,db))
+	 (%defconfig place default-value :predicate validator :coercer coercer
+					 :reinitialize reinitialize :db db
+					 :documentation documentation
+					 :tags tags :regen-config regen-config))
 	(typespec
 	 `(%defconf-vv-intermediary ,place ,default-value
 				    :predicate (lambda (x) (typep x ,typespec))
-				    :coercer ,coercer :reinitialize ,reinitialize :documentation ,documentation
-				    :tags ,tags :regen-config ,regen-config :valid-values-list ,typespec :db ,db))
+				    :coercer ,coercer :reinitialize ,reinitialize
+				    :documentation ,documentation :tags ,tags
+				    :regen-config ,regen-config :db ,db
+				    :valid-values-list ,typespec))
 	(t
-	 `(%defconfig place default-value :coercer coercer :reinitialize reinitialize :db ,db
-					  :documentation documentation :tags tags :regen-config regen-config))))
+	 (%defconfig place default-value
+		     :coercer coercer :reinitialize reinitialize :db db
+		     :documentation documentation :tags tags
+		     :regen-config regen-config))))
