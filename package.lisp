@@ -5,9 +5,9 @@
   (:import-from #:trivial-cltl2 #:compiler-let)
   (:export #:defconfig
 	   #:setv
-           ;; place->config-info
+	   #:setv-atomic
+	   #:with-atomic-setv
 	   #:config-info-search
-	   ;; *default-db*
 	   #:invalid-datum-error
 	   #:invalid-coerced-datum-error
 	   #:no-config-found-error
