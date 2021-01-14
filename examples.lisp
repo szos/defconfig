@@ -62,10 +62,13 @@
 ;;; Bounded Numbers
 ;; sometimes you might want to have a bounded number - for example a counter that shouldnt exceed a certain value.
 ;; we can use defconfig and setv to ensure that it isnt exceeded in two ways - typespec or a predicate.
-;; for this use case, typespec is the easiest.
+;; for this use case, typespec is the easiest. We will also supply a coercer, on the off chance someone tries to set
+;; this to a string.
 (defconfig *bounded-number* 0 :typespec '(integer 0 10)
+  :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
   :documentation "A number with the bounds 0 to 10 inclusive"
-  :tags '("bounded number" "integer"))
+  :tags '("bounded number" "integer")
+  :reinitialize t :regen-config t)
 
 ;;; Matching Specific Strings
 ;; You might want to check if a string is formatted propperly - here typespec is insufficient.
@@ -77,5 +80,40 @@
 		(not (valid-formatter? (coerce (list c1 c2) 'string))))
 	  do (return-from validate-stump-mode-line nil))
   t)
-(defconfig stumpwm::*screen-mode-line-format* "[^B%n^b] %W" :validator 'validate-stump-mode-line
+(defconfig *screen-mode-line-format* "[^B%n^b] %W" :validator 'validate-stump-mode-line
   :tags '("stumpwm" "mode-line" "mode-line-format"))
+
+
+
+;;; WITH-ATOMIC-SETV
+
+;; this macro resets all setv'd places on encountering any error
+;; all examples use the following defconfig definitions
+(defconfig *varname* :top :typespec '(member :top :bottom :left :right) ;; :coercer 'location-sym-coercer
+  :documentation "a variable for locations on screen" :tags '("varname" "*varname*" "location")
+  :reinitialize t :regen-config t)
+(defconfig *varname2* :top :typespec '(member :top :bottom :left :right) ;; :coercer 'location-sym-coercer
+  :documentation "a variable for locations on screen" :tags '("varname" "*varname*" "location")
+  :reinitialize t :regen-config t)
+
+;; for example, the following wont modify *varname* or *varname2*, as :center is forbidden
+;; however, it will technically modify *varname*, it just resets it upon encountering the
+;; error with *varname2*.
+(with-atomic-setv ()
+  (setv *varname* :bottom)
+  (setv *varname2* :center))
+
+;; but this example will modify both. 
+(with-atomic-setv ()
+  (setv *varname* :bottom)
+  (setv *varname2* :right))
+
+;; errors signalled outside of setv forms wont reset variables. thusly this example leaves
+;; *varname2* bound to :right (assuming your evaluating these examples one after the other)
+;; while *varname* gets bound to :left, unless a continue restart is put in place  around error
+(with-atomic-setv ()
+  (setv *varname* :left)
+  (error "some error!")
+  (setv *varname2* :bottom))
+
+
