@@ -121,40 +121,44 @@ value if an error is encountered. the error is then resignalled"
 		       collect `(setf ,place ,gensym))
 	       (error ,c))))))))
 
-(defmacro %atomic-setv-reset (db)
+(defmacro %atomic-setv-reset ()
   "this macro resets all encountered places within a call to with-atomic-setv."
   (declare (special *setv-place-accumulator*))
   (let ((place-list (cdr *setv-place-accumulator*)))
-    `(progn ,@(loop for place in place-list
+    `(progn ,@(loop for (db place) in place-list
 		    collect `(reset-place ,place :db ,db :previous-value t)))))
 
 (defmacro %setv-with-reset (block-name place value db)
   "Wrap setv in a handler to catch all errors, which will reset all encountered
  places, after which it returns the condition from the named block."
   (declare (special *setv-place-accumulator*))
-  (push place *setv-place-accumulator*)
+  (push (list db place) *setv-place-accumulator*)
   (alexandria:with-gensyms (c)
     `(handler-case (%setv ,place ,value ,db)
        (error (,c)
-	 (%atomic-setv-reset ,db)
+	 (%atomic-setv-reset)
 	 (return-from ,block-name ,c)))))
 
 (defmacro %atomic-setv (block-name &rest args)
   "generates a set of calls to %setv-with-reset."
   (declare (special *setv-place-accumulator*))
   (destructuring-keys (pairs (:db '*default-db*)) args
-    `(progn ,@(loop for (p v) on pairs by 'cddr
-		    collect `(%setv-with-reset ,block-name ,p ,v ,db)))))
+    `(progn
+       ,@(loop for (p v) on pairs by 'cddr
+	       collect `(%setv-with-reset ,block-name ,p ,v ,db)))))
 
 (defmacro with-atomic-setv ((&key (re-error t)) &body body)
   "This macro causes every call to setv to, on an invalid value, reset the place in
 question to its previous value."
-  (alexandria:with-gensyms (args block-name c)
+  (alexandria:with-gensyms (args block-name c inner-c)
     `(compiler-let ((*setv-place-accumulator* nil))
        (let ((,c (block ,block-name
 		   (macrolet ((setv (&rest ,args)
 				`(%atomic-setv ,',block-name ,@,args)))
-		     ,@body))))
+		     (handler-case (progn ,@body)
+		       (error (,inner-c)
+			 (%atomic-setv-reset)
+			 (return-from ,block-name ,inner-c)))))))
 	 (if (and (typep ,c 'error) ,re-error)
 	     (error 'setv-wrapped-error :error ,c)
 	     ,c)))))
