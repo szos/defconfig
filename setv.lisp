@@ -23,12 +23,14 @@
 		    (churn (cddr list) accum-rest
 			   (cons (cadr list)
 				 (cons (car list) accum-keys))))
-		   (t (churn (cdr list) (cons (car list) accum-rest) accum-keys)))))
+		   (t (churn (cdr list)
+			     (cons (car list) accum-rest)
+			     accum-keys)))))
     (churn list nil nil)))
 
 (defmacro destructuring-keys ((var &rest keys) list &body body)
-  "separates keys from list, storing the remainder in var, and making each key a variable via
-destructuring-bind."
+  "separates keys from list, storing the remainder in var, and making each key a
+variable via destructuring-bind."
   (alexandria:with-gensyms (key-hold)
     `(multiple-value-bind (,var ,key-hold) (remove-keys ,list ',keys)
        (destructuring-bind (&key ,@(loop for k in keys
@@ -37,18 +39,21 @@ destructuring-bind."
 							  (symbol-name (car k)))
 							 (cdr k))
 					 else 
-					   collect (read-from-string (symbol-name k))))
+					   collect (read-from-string
+						    (symbol-name k))))
 	   ,key-hold
 	 ,@body))))
 
-(defmacro %setv-coerced (validity config-info-object place original-value coerced-value)
+(defmacro %setv-coerced (validity config-info-object place original-value
+			 coerced-value)
   `(restart-case
        (if ,validity
 	   (progn (psetf (config-info-prev-value ,config-info-object) ,place
 			 ,place ,coerced-value)
 		  ,coerced-value)
-	   (error 'invalid-coerced-datum-error
-		  :place ',place :value ,original-value :coerced-value ,coerced-value))
+	   (error 'invalid-coerced-datum-error :place ',place
+					       :value ,original-value
+					       :coerced-value ,coerced-value))
      (set-place-to-coerced-value ()
        :report (lambda (stream)
 		 (format stream "Set ~S to ~S" ',place ,coerced-value))
@@ -56,7 +61,7 @@ destructuring-bind."
 	      ,place ,coerced-value)
        ,coerced-value)))
 
-(defmacro %setv-validity-set (validity config-info-object place value)
+(defmacro %setv-original (validity config-info-object place value)
   (alexandria:with-gensyms (coer-hold coer-valid?)
     `(restart-case
 	 (cond (,validity
@@ -64,9 +69,14 @@ destructuring-bind."
 		       ,place ,value)
 		,value)
 	       ((config-info-coercer ,config-info-object)
-		(let* ((,coer-hold (funcall (config-info-coercer ,config-info-object) ,value))
-		       (,coer-valid? (funcall (config-info-predicate ,config-info-object) ,coer-hold)))
-		  (%setv-coerced ,coer-valid? ,config-info-object ,place ,value ,coer-hold)))
+		(let* ((,coer-hold
+			 (funcall (config-info-coercer ,config-info-object)
+				  ,value))
+		       (,coer-valid?
+			 (funcall (config-info-predicate ,config-info-object)
+				  ,coer-hold)))
+		  (%setv-coerced ,coer-valid? ,config-info-object
+				 ,place ,value ,coer-hold)))
 	       (t (error 'invalid-datum-error :place ',place :value ,value)))
        (set-place-to-value ()
 	 :report (lambda (s)
@@ -93,7 +103,7 @@ gets set to the coerced value. Restarts are put into place "
 		   `(or (gethash ',place ,hash)
 			(error 'no-config-found-error :place ',place :db ',db))))
 	    (,valid? (funcall (config-info-predicate ,config-info-object) ,hold)))
-       (%setv-validity-set ,valid? ,config-info-object ,place ,hold))))
+       (%setv-original ,valid? ,config-info-object ,place ,hold))))
 
 (defmacro setv (&rest args)
   "Setv must get an even number of args - every place must have a value. Setv
@@ -104,8 +114,9 @@ objects in. "
 		    collect `(%setv ,p ,v ,db)))))
 
 (defmacro setv-atomic (&rest args)
-  "this version of setv saves the original value of the places being set, and resets all to their original 
-value if an error is encountered. the error is then resignalled"
+  "this version of setv saves the original value of the places being set, and 
+resets all to their original value if an error is encountered. the error is then
+resignalled"
   (alexandria:with-gensyms (c)
     (multiple-value-bind (pairs db) (remove-keys args '(:db))
       (let ((syms (loop for (p v) on pairs by 'cddr collect (gensym))))
@@ -114,7 +125,10 @@ value if an error is encountered. the error is then resignalled"
 		     collect `(,gensym ,place))
 	   (handler-case
 	       (progn ,@(loop for (place value) on pairs by 'cddr
-			      collect `(%setv ,place ,value ,@(if db (cdr db) '(*default-db*)))))
+			      collect `(%setv ,place ,value
+					      ,@(if db
+						    (cdr db)
+						    '(*default-db*)))))
 	     (error (,c)
 	       ,@(loop for (place value) on pairs by 'cddr
 		       for gensym in syms
@@ -150,8 +164,8 @@ value if an error is encountered. the error is then resignalled"
 	       collect `(%setv-with-reset ,block-name ,p ,v ,db)))))
 
 (defmacro with-atomic-setv ((&key (re-error t)) &body body)
-  "This macro causes every call to setv to, on an invalid value, reset the place in
-question to its previous value."
+  "This macro causes every call to setv to, on an invalid value, reset the place
+in question to its previous value."
   (alexandria:with-gensyms (args block-name c inner-c)
     `(compiler-let ((*setv-place-accumulator* nil))
        (let ((,c (block ,block-name
