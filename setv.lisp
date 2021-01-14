@@ -1,5 +1,13 @@
 (in-package :defconfig)
 
+(define-condition setv-wrapped-error (error)
+  ((condition :initarg :error :accessor atomic-setv-wrapped-error))
+  (:report
+   (lambda (c s)
+     (with-slots (condition) c
+       (format s "WITH-ATOMIC-SETV encountered the error ~S and reset"
+	       (type-of condition))))))
+
 (defun remove-keys (list keys)
   "returns two values - accumulated non-keys and keys "
   (labels ((wanted-key-p (thing)
@@ -139,7 +147,7 @@ value if an error is encountered. the error is then resignalled"
 		    collect `(%setv-with-reset ,block-name ,p ,v ,db)))))
 
 (defmacro with-atomic-setv ((&key (re-error t)) &body body)
-  "This macro causes every call to setv to, on an invalid value, reset the place in 
+  "This macro causes every call to setv to, on an invalid value, reset the place in
 question to its previous value."
   (alexandria:with-gensyms (args block-name c)
     `(compiler-let ((*setv-place-accumulator* nil))
@@ -148,5 +156,5 @@ question to its previous value."
 				`(%atomic-setv ,',block-name ,@,args)))
 		     ,@body))))
 	 (if (and (typep ,c 'error) ,re-error)
-	     (error 'atomic-setv-wrapped-error :error ,c)
+	     (error 'setv-wrapped-error :error ,c)
 	     ,c)))))
