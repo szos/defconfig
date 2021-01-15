@@ -17,13 +17,16 @@
 	       :documentation "holds the value previously assigned to the config-info object. initially the same as default-value")))
 
 (defclass config-info-metadata ()
-  ((name :initarg :name :initform "Unnamed config-info object" :accessor config-info-name
+  ((name :initarg :name :initform "Unnamed config-info object"
+	 :accessor config-info-name
 	 :documentation "The formal name by which this config-info object can be searched for")
    (tags :initarg :tags :initform '() :accessor config-info-tags
 	 :documentation "Tags which can be used for finding a config-info object")
-   (docstring :initarg :documentation :initform nil :accessor config-info-documentation
+   (docstring :initarg :documentation :initform nil
+	      :accessor config-info-documentation
 	      :documentation "The docstring for the place being governed. if a variable it is the same as the variables docstring")
-   (valid-values :initarg :valid-values :initform :unset :accessor config-info-valid-values-description
+   (valid-values :initarg :valid-values :initform :unset
+		 :accessor config-info-valid-values-description
 		 :documentation "An explanation of the valid values and predicate function")))
 
 (defclass config-info (config-info-metadata config-info-functions config-info-direct-info) ())
@@ -112,40 +115,52 @@
 
 ;;; actual defconfig workers and macros. 
 
-(defun %defconfig (place default &key (predicate 'cl::identity predicate-provided-p)
-				   coercer reinitialize documentation tags regen-config
-				   (db '*default-db*) valid-values-list)
+(defun %defconfig (place default &key coercer reinitialize tags
+				   regen-config (db '*default-db*)
+				   valid-values-list documentation
+				   (predicate 'cl::identity predicate-provided-p))
   (alexandria:with-gensyms (hold hash validated obj pred)
     `(let* ((,pred ,@(if predicate-provided-p
 			 `(,predicate)
 			 `(',predicate)))
 	    (,hold ,default)
-	    (,hash ,(if (listp place) `(car ,db) `(cdr ,db))) ; if place is a list its an accessor
+	    (,hash ,(if (listp place) `(car ,db) `(cdr ,db)))
+	    ;; if place is a list its an accessor
 	    (,validated (funcall ,pred ,hold))
 	    (,obj ,(if (listp place)
-		       `(gethash ',(if (= (length place) 1) (car place) place) ,hash)
+		       `(gethash ',(if (= (length place) 1)
+				       (car place)
+				       place)
+				 ,hash)
 		       `(gethash ',place ,hash))))
        (if ,validated
 	   ,@(cond ((and reinitialize (listp place))
 		    `((setf ,place ,hold)))
 		   (reinitialize
-		    `((defparameter ,place ,hold ,@(when documentation (list documentation)))))
+		    `((defparameter ,place ,hold
+			,@(when documentation (list documentation)))))
 		   (t (if (listp place)
 			  `(nil)
-			  `((defvar ,place ,hold ,@(when documentation (list documentation)))))))
+			  `((defvar ,place ,hold
+			      ,@(when documentation (list documentation)))))))
 	   (error 'invalid-datum-error :place ',place :value ,hold))
        (when (or (not ,obj) (and ,obj ,regen-config))
 	 (setf ,(if (listp place)
 		    `(gethash ',(if (= (length place) 1) (car place) place) ,hash)
 		    `(gethash ',place ,hash))
 	       (make-instance 'config-info
-			      ,@(when predicate `(:predicate ,pred))
-			      ,@(when coercer `(:coercer ,coercer))
-			      ,@(when documentation `(:documentation ,documentation))
-			      ,@(when tags `(:tags ,tags))
+			      ,@(when predicate
+				  `(:predicate ,pred))
+			      ,@(when coercer
+				  `(:coercer ,coercer))
+			      ,@(when documentation
+				  `(:documentation ,documentation))
+			      ,@(when tags
+				  `(:tags ,tags))
 			      :place ',place
 			      :default ,hold
-			      ,@(when valid-values-list `(:valid-values ,valid-values-list))))))))
+			      ,@(when valid-values-list
+				  `(:valid-values ,valid-values-list))))))))
 
 (defmacro %defconf-vv-intermediary (place default &key predicate coercer
 						    reinitialize regen-config
