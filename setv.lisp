@@ -5,7 +5,7 @@
   (:report
    (lambda (c s)
      (with-slots (condition) c
-       (format s "WITH-ATOMIC-SETV encountered the error ~S and reset"
+       (format s "WITH-ATOMIC-SETV encountered the error ~S and reset."
 	       (type-of condition))))))
 
 (defun remove-keys (list keys)
