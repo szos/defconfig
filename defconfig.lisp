@@ -109,7 +109,7 @@
 
 (defun make-config-database ()
   "creates a cons of two hash tables, the car for function lookup and the cdr for variable lookup."
-  (cons (make-hash-table :test 'equalp) (make-hash-table :test 'equalp)))
+  (cons (make-hash-table :test 'equalp) (make-hash-table :test 'eql)))
 
 (defparameter *default-db* (make-config-database))
 
