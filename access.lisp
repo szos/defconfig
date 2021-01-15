@@ -10,6 +10,12 @@
 	  (gethash (car place) (car db)))
       (gethash place (cdr db))))
 
+(defmacro with-config-info ((var place &key (db '*default-db*)) &body body)
+  `(let ((,var (place->config-info ,place :db ,db)))
+     (if ,var
+	 (progn ,@body)
+	 (error 'no-config-found-error :place ',place :db ',db))))
+
 (defun config-info-search-tags (tags &key (namespace :both) (db *default-db*))
   (flet ((fmap ()
 	   (let (fobjs)
@@ -62,4 +68,8 @@ symbols representing an accessor and a place."
 			     `(config-info-default-value ,obj)))
 	   (error 'no-config-found-error :place ',place :db ',db)))))
 
-
+(defun clean-previous-value (place &key (db *default-db*))
+  "use to set the previous value of place to the default value. This is useful for
+places that may hold a large object which you want gc'd"
+  (with-config-info (obj place :db db)
+    (setf (config-info-prev-value obj) (config-info-default-value obj))))
