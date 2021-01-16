@@ -1,7 +1,7 @@
 (defpackage #:defconfig.test
   (:use #:cl)
   (:local-nicknames (#:am #:fiveam))
-  (:import-from #:defconfig #:defconfig #:setv #:with-atomic-setv
+  (:import-from #:defconfig #:defconfig #:setv #:with-atomic-setv #:setv-atomic
 		#:config-info-search #:make-config-database #:reset-place)
   (:import-from #:fiveam #:is #:signals))
 
@@ -59,3 +59,25 @@
 			  :db *testing-db*))
       (defconfig::setv-wrapped-error (c)
 	(error (defconfig::setv-wrapped-error-condition c))))))
+
+(am:test test-setv-atomic
+  (is (eql (setv *light-dark* 'dark
+		 :db *testing-db*)
+	   'dark))
+  (signals defconfig:invalid-datum-error
+    (setv *light-dark* 'invalid
+	  :db *testing-db*)))
+
+(am:test test-coercion
+  (is (= (setv *bounded-number* 0
+	       :db *testing-db*)
+	 0))
+  (is (= *bounded-number* 0))
+  (is (= (setv *bounded-number* "1"
+	       :db *testing-db*)
+	 1))
+  (is (= *bounded-number* 1))
+  (signals defconfig:invalid-coerced-datum-error
+    (setv *bounded-number* "20"
+	  :db *testing-db*))
+  (is (= *bounded-number* 1)))
