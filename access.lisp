@@ -59,7 +59,7 @@ symbols representing an accessor and a place."
 	 (place->config-info term :db db))))
 
 (defmacro reset-place (place &key (db '*default-db*) previous-value)
-  "looks up a place "
+  "looks up a place and set it to its default or previous value."
   (alexandria:with-gensyms (obj)
     `(let ((,obj (place->config-info ',place :db ,db)))
        (if ,obj
