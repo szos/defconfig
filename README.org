@@ -39,6 +39,8 @@
 * Functions
 ** make-config-database 
    This function takes no arguments and returns a config database. 
+** config-info-search 
+   This function takes a /term/ to search for, and key arguments for the database and the namespace to search within. /Term/ can be a string, a list of strings, or a symbol/accessor. /Namespace/ is only used when /term/ is a string or list of strings. /Db/ specifies the database to look things up in. 
 * Errors
 ** Invalid-datum-error  
    This error is signalled if one tries to set a place to an invalid value. 
