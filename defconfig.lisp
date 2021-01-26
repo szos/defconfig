@@ -9,7 +9,9 @@
 	    :documentation "The function by which invalid datum will attempt to be coerced")))
 
 (defclass config-info-direct-info ()
-  ((place :initarg :place :accessor config-info-place
+  ((db :initarg :db :accessor config-info-db
+       :documentation "the database that the config info object is housed in.")
+   (place :initarg :place :accessor config-info-place
 	  :documentation "The place which this config info governs.")
    (default-value :initarg :default :accessor config-info-default-value
 		  :documentation "The default value of this config-info object")
@@ -119,7 +121,7 @@
 
 (defun make-config-database ()
   "creates a cons of two hash tables, the car for function lookup and the cdr for
-variable lookup. for internal use only"
+variable lookup. car must be equalp as we compare lists. for internal use only."
   (cons (make-hash-table :test 'equalp) 
         (make-hash-table :test 'eql)))
 
@@ -180,7 +182,7 @@ passing KEY to the function getdb"
 
 ;;; actual defconfig workers and macros. 
 
-(defun %defconfig (place default &key coercer reinitialize tags
+(defun %defconfig (place default &key coercer reinitialize tags name
 				   regen-config (db '*default-db*)
 				   valid-values-list documentation
 				   (predicate 'cl::identity predicate-provided-p))
@@ -225,41 +227,48 @@ passing KEY to the function getdb"
 				  `(:coercer ,coercer))
 			      ,@(when documentation
 				  `(:documentation ,documentation))
+			      :name ,(if name
+					 name
+					 (format nil "config-info object for ~A"
+						 place))
 			      ,@(when tags
 				  `(:tags ,tags))
 			      :place ',place
 			      :default ,hold
 			      ,@(when valid-values-list
-				  `(:valid-values ,valid-values-list))))))))
+				  `(:valid-values ,valid-values-list))
+			      :db ',db))))))
 
-(defmacro %defconf-vv-intermediary (place default &key predicate coercer
+(defmacro %defconf-vv-intermediary (place default &key predicate coercer name
 						    reinitialize regen-config
 						    documentation tags db
 						    valid-values-list)
   (%defconfig place default :predicate predicate :reinitialize reinitialize
-			    :tags tags :regen-config regen-config
+			    :tags tags :regen-config regen-config :name name
 			    :coercer coercer :documentation documentation
 			    :valid-values-list valid-values-list :db db))
 
 (defmacro defconfig (place default-value &key validator typespec coercer
-					   reinitialize regen-config
+					   reinitialize regen-config name
 					   documentation tags (db '*default-db*))
   (when (and validator typespec)
     (error "A validator and typespec keyargs cannot both be provided to defconfig"))
   (cond (validator
 	 (%defconfig place default-value :predicate validator :coercer coercer
 					 :reinitialize reinitialize :db db
-					 :documentation documentation
+					 :documentation documentation :name name
 					 :tags tags :regen-config regen-config))
 	(typespec
 	 `(%defconf-vv-intermediary ,place ,default-value
-				    :predicate (lambda (x) (typep x ,typespec))
+				    :predicate (lambda (x)
+						 ,(format nil "check if X is of type ~A" typespec)
+						 (typep x ,typespec))
 				    :coercer ,coercer :reinitialize ,reinitialize
 				    :documentation ,documentation :tags ,tags
-				    :regen-config ,regen-config :db ,db
+				    :regen-config ,regen-config :db ,db :name ,name
 				    :valid-values-list ,typespec))
 	(t
 	 (%defconfig place default-value
 		     :coercer coercer :reinitialize reinitialize :db db
 		     :documentation documentation :tags tags
-		     :regen-config regen-config))))
+		     :regen-config regen-config :name name))))
