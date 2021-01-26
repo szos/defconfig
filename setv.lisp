@@ -22,9 +22,11 @@
 		   ((wanted-key-p (car list))
 		    (churn (cddr list) accum-rest
 			   (cons (cadr list)
-				 (cons (car list) accum-keys))))
+				 (cons (car list)
+				       accum-keys))))
 		   (t (churn (cdr list)
-			     (cons (car list) accum-rest)
+			     (cons (car list)
+				   accum-rest)
 			     accum-keys)))))
     (churn list nil nil)))
 

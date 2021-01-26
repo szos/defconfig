@@ -120,7 +120,8 @@
 (defun make-config-database ()
   "creates a cons of two hash tables, the car for function lookup and the cdr for
 variable lookup. for internal use only"
-  (cons (make-hash-table :test 'equalp) (make-hash-table :test 'eql)))
+  (cons (make-hash-table :test 'equalp) 
+        (make-hash-table :test 'eql)))
 
 (defun add-db-to-plist (key varname db)
   "add a database to *db-plist* in the correct format. for internal use only"
@@ -188,7 +189,9 @@ passing KEY to the function getdb"
 			 `(,predicate)
 			 `(',predicate)))
 	    (,hold ,default)
-	    (,hash ,(if (listp place) `(car ,db) `(cdr ,db)))
+	    (,hash ,(if (listp place)
+			`(car ,db)
+			`(cdr ,db)))
 	    ;; if place is a list its an accessor
 	    (,validated (funcall ,pred ,hold))
 	    (,obj ,(if (listp place)
@@ -210,7 +213,10 @@ passing KEY to the function getdb"
 	   (error 'invalid-datum-error :place ',place :value ,hold))
        (when (or (not ,obj) (and ,obj ,regen-config))
 	 (setf ,(if (listp place)
-		    `(gethash ',(if (= (length place) 1) (car place) place) ,hash)
+		    `(gethash ',(if (= (length place) 1)
+				    (car place)
+				    place)
+			      ,hash)
 		    `(gethash ',place ,hash))
 	       (make-instance 'config-info
 			      ,@(when predicate
