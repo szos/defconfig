@@ -3,6 +3,9 @@
 * Purpose
   Defconfig is a customization and validation framework for places in CL. Its intended use is to supplement or replace existing ~defvar~ and ~defparameter~ forms with a ~defconfig~ form. This will generate the appropriate ~def(var|parameter)~ form as well as a configuration object which is used to validate values for that place. It can also be used with accessors, either specific to a place or in general, by providing =(accessorfn *myplace*)= or ~(accessorfn)~ for the place variable. See examples.lisp for more details. This system provides two macros, ~defconfig~ and ~setv~. ~setv~ can be used in place of setf to validate a value before setting it. ~setf~ can still be used as per usual. 
 
+* A Note About Reset-Place
+  The macro ~reset-place~ (and by extension the function ~reset-computed-place~) could be a little confusing. It takes a place, and resets it to its default value. However if ~previous-value~ is true, then it resets to the previous value instead. Before setting, it checks if the current value is eql to the value to reset to (this can be controlled with ~already-reset-test~) and if it is it isnt reset as it would have no effect. If it isnt, we both reset the place, AND set the ~previous-value~ slot to the (now no longer) current value. thusly, if the default value is a, previous value is b, and current value is c, and we reset to the default value, we will have a default of a, previous of c, and current of a. If we had instead reset to the previous value, we effectively swap the previous and current values. 
+
 * Macros
 ** Defconfig
    The ~defconfig~ macro generates a config-info object and registers it in a database. The signature is *defconfig* /place default-value &key validator valid-values coercer reinitialize regen-config test documentation tags/ => /config-info/
