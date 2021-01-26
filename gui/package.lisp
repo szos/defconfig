@@ -13,5 +13,8 @@
 		#:config-info-default-value
 		#:config-info-prev-value
 		#:config-info-valid-values-description
-		#:config-info-docstring)
+		#:config-info-documentation
+		#:config-info-place
+		#:config-info-predicate
+		#:config-info-coercer)
   (:import-from #:climi #:named-color))
