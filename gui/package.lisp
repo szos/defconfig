@@ -13,4 +13,5 @@
 		#:config-info-default-value
 		#:config-info-prev-value
 		#:config-info-valid-values-description
-		#:config-info-docstring))
+		#:config-info-docstring)
+  (:import-from #:climi #:named-color))

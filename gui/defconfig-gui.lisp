@@ -18,13 +18,13 @@
   :parameter nil
   :doc "a defconfig database for the defconfig gui's settings")
 
-(defconfig *database-name-color* +orange-red+
+(defconfig *database-name-color* +dark-green+
   :typespec 'climi::standard-color
   :db *gui-db*
   :tags '("database-color" "database-display-color" "color")
   :documentation "the color with which to display database names")
 
-(defconfig *config-symbol-color* +green+ :typespec 'climi::standard-color
+(defconfig *config-symbol-color* +dark-sea-green+ :typespec 'climi::standard-color
   :db *gui-db*
   :tags '("config" "symbol" "color")
   :documentation "the color with which to display config symbols")
@@ -34,11 +34,13 @@
    (database-list :application
 		  :display-function 'display-database-list
 		  :scroll-bars nil
-		  :width 600)
+		  :width :compute
+		  :height :compute)
    (database-view :application
 		  :display-function 'display-database
 		  :scroll-bars nil
-		  :width 600)
+		  :width :compute
+		  :height :compute)
    (interactor :interactor))
   (:layouts
    (default
@@ -49,7 +51,9 @@
       (make-pane 'clim-extensions:box-adjuster-gadget)
       (1/4 interactor)))))
 
-(define-defconfig-configurator-command (com-refresh-frame :name t) () ())
+(define-defconfig-configurator-command (com-refresh-frame :name t)
+    ()
+  ())
 (define-defconfig-configurator-command (com-quit :name t) ()
   (frame-exit *application-frame*))
 
@@ -76,29 +80,32 @@
     (let ((dbs defconfig::*db-plist*))
       (loop for (key db) on dbs by 'cddr
 	    do (with-output-as-presentation (pane key 'database-list-presentation)
-		 (format pane "~S (~S), " key (car db)))))))
+		 (format pane "~S (" key )
+		 (italic (pane)
+		   (format pane "~S" (car db)))
+		 (format pane ")"))
+	       (format pane ", ")))))
 
 (defun write-database-to-stream (pane db)
   (slim:with-table (pane)
-    (slim:row
-      (slim:cell
-	(format pane "Config Variable"))
-      (slim:cell
-	(format pane "Current Value"))
-      (slim:cell
-	(format pane "Previous Value"))
-      (slim:cell
-	(format pane "Default Value"))
-      (slim:cell
-	(format pane "Valid Values")))
-    (terpri pane)
+    (bold (pane)
+      (slim:row
+	(slim:cell
+	  (format pane "Config Variable"))
+	(slim:cell
+	  (format pane "Current Value"))
+	(slim:cell
+	  (format pane "Previous Value"))
+	(slim:cell
+	  (format pane "Default Value"))
+	(slim:cell
+	  (format pane "Valid Values"))))
     (if (hash-table-p db)
 	(maphash
 	 (lambda (k v)
 	   (slim:row
 	     (slim:cell 
-	       (format-color pane *config-symbol-color* "~S" k)
-	       (format pane ": "))
+	       (format-color pane *config-symbol-color* "~S" k))
 	     (slim:cell
 	       (format pane "~S" (symbol-value k)))
 	     (slim:cell
@@ -106,10 +113,9 @@
 	     (slim:cell
 	       (format pane "~S" (config-info-default-value v)))
 	     (slim:cell
-	       (format pane "~S" (config-info-valid-values-description v))))
-	   (terpri pane))
+	       (format pane "~S" (config-info-valid-values-description v)))))
 	 db)
-	(format pane "~S" db))))
+	(slim:row (slim:col (slim:cell (format pane "~S" db)))))))
 
 (let (key dbname db)
   (defun display-database (frame pane)
@@ -121,9 +127,7 @@
     (format pane "~%Accessor Database~%")
     (with-end-of-line-action (pane :allow)
       (write-database-to-stream pane (car db)))
-    (fresh-line pane)
-    (fresh-line pane)
-    (format pane "~%Variable Database~%")
+    (format pane "Variable Database~%")
     (with-end-of-line-action (pane :allow)
       (write-database-to-stream pane (cdr db))))
   (defun set-display-db (db-key db-name database)
