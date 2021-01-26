@@ -10,13 +10,17 @@
 	   #:setv-atomic
 	   #:with-atomic-setv
 	   #:reset-place
+	   #:reset-computed-place
 	   #:config-info-search
 
 	   ;; access functions/macros
 	   #:config-info-default-value
 	   #:config-info-prev-value
            #:config-info-valid-values-description
-	   #:config-info-docstring
+	   #:config-info-documentation
+	   #:config-info-place
+	   #:config-info-predicate
+	   #:config-info-coercer
            
 	   ;; errors
 	   #:config-error
