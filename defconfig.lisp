@@ -105,14 +105,78 @@
      (with-slots (place-form) c
        (format s "Unable to find config-info for place ~S" place-form)))))
 
+(define-condition database-already-exists-error (config-error)
+  ((key :initarg :key :reader database-already-exists-error-key))
+  (:report
+   (lambda (condition stream)
+     (format stream "The key ~S already denotes a defconfig database"
+	     (database-already-exists-error-key condition)))))
+
 ;;; database
 
-(defun make-config-database ()
-  "creates a cons of two hash tables, the car for function lookup and the cdr for variable lookup."
-  (cons (make-hash-table :test 'equalp)
-	(make-hash-table :test 'eql)))
+(defparameter *db-plist* nil
+  "a plist holding all databases for defconfig")
 
-(defparameter *default-db* (make-config-database))
+(defun make-config-database ()
+  "creates a cons of two hash tables, the car for function lookup and the cdr for
+variable lookup. for internal use only"
+  (cons (make-hash-table :test 'equalp) 
+        (make-hash-table :test 'eql)))
+
+(defun add-db-to-plist (key varname db)
+  "add a database to *db-plist* in the correct format. for internal use only"
+  (setf *db-plist* (cons key (cons (cons varname db) *db-plist*))))
+
+(defun db-key-exists-p (key)
+  "return t/nil if KEY denotes a pre-existing db"
+  (if (getf *db-plist* key) t nil))
+
+(defun getdb (key)
+  "used internally by defconfig to wrap around getf - think of it as currying getf
+with *db-plist* as the place"
+  (getf *db-plist* key))
+
+(defun get-db (key)
+  "get the database associated with KEY"
+  (cdr (getdb key)))
+
+(defun get-db-var (key)
+  "get the variable holding the database associated with KEY"
+  (car (getdb key)))
+
+(defun list-dbs ()
+  "list all defconfig databases"
+  (loop for (key db) on *db-plist* by 'cddr
+	collect key))
+
+(defun delete-db (key &optional makunbound)
+  "delete the database associated with KEY. if MAKUNBOUND is T, then unbind the 
+symbol holding the database associated with KEY"
+  (let ((dbvar (get-db-var key)))
+    (when (and makunbound dbvar)
+      (makunbound dbvar)))
+  (remf *db-plist* key))
+
+(defmacro define-defconfig-db (var key
+			       &key (parameter t)
+				 (doc "A parameter holding a defconfig database"))
+  "define a dynamic variable name VAR to be a defconfig database accessible by
+passing KEY to the function getdb"
+  `(locally (declare (special ,var))
+     (cond
+       ((not (keywordp ,key))
+	(error 'type-error
+	       :expected-type 'keyword
+	       :datum ,key
+	       :context (format nil "when defining defconfig database ~S" ',var)))
+       ((db-key-exists-p ,key)
+	(error 'database-already-exists-error :key ,key))
+       (t
+	(,(if parameter 'defparameter 'defvar) ,var (make-config-database) ,doc)
+	(add-db-to-plist ,key ',var ,var)))))
+
+(define-defconfig-db *default-db* :default t
+    "The default database for defconfig")
 
 ;;; actual defconfig workers and macros. 
 
