@@ -175,8 +175,8 @@ passing KEY to the function getdb"
 	(,(if parameter 'defparameter 'defvar) ,var (make-config-database) ,doc)
 	(add-db-to-plist ,key ',var ,var)))))
 
-(define-defconfig-db *default-db* :default t
-    "The default database for defconfig")
+(define-defconfig-db *default-db* :default
+  :doc "The default database for defconfig")
 
 ;;; actual defconfig workers and macros. 
 
