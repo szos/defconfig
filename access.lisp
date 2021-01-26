@@ -58,15 +58,20 @@ symbols representing an accessor and a place."
 	((or (symbolp term) (listp term))
 	 (place->config-info term :db db))))
 
+(defun reset-computed-place (place &key (db *default-db*) previous-value)
+  "A function version of reset-place - ie it evaluates its arguments. "
+  (let* ((obj (or (place->config-info place :db db)
+		  (error 'no-config-found-error :place place :db db)))
+	 (curval (symbol-value (config-info-place obj)))
+	 (newval (if previous-value
+		     (config-info-prev-value obj)
+		     (config-info-default-value obj))))
+    (setf (symbol-value (config-info-place obj)) newval
+	  (config-info-prev-value obj) curval)))
+
 (defmacro reset-place (place &key (db '*default-db*) previous-value)
   "looks up a place and set it to its default or previous value."
-  (alexandria:with-gensyms (obj)
-    `(let ((,obj (place->config-info ',place :db ,db)))
-       (if ,obj
-	   (setf ,place ,(if previous-value
-			     `(config-info-prev-value ,obj)
-			     `(config-info-default-value ,obj)))
-	   (error 'no-config-found-error :place ',place :db ',db)))))
+  `(reset-computed-place ',place :db ,db :previous-value ,previous-value))
 
 (defun clean-previous-value (place &key (db *default-db*))
   "use to set the previous value of place to the default value. This is useful for
