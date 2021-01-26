@@ -58,7 +58,8 @@ symbols representing an accessor and a place."
 	((or (symbolp term) (listp term))
 	 (place->config-info term :db db))))
 
-(defun reset-computed-place (place &key (db *default-db*) previous-value)
+(defun reset-computed-place (place &key (db *default-db*) previous-value
+				     (already-reset-test 'eql))
   "A function version of reset-place - ie it evaluates its arguments. "
   (let* ((obj (or (place->config-info place :db db)
 		  (error 'no-config-found-error :place place :db db)))
@@ -66,8 +67,10 @@ symbols representing an accessor and a place."
 	 (newval (if previous-value
 		     (config-info-prev-value obj)
 		     (config-info-default-value obj))))
-    (setf (symbol-value (config-info-place obj)) newval
-	  (config-info-prev-value obj) curval)))
+    (unless (funcall already-reset-test curval newval)
+      (setf (symbol-value (config-info-place obj)) newval
+	    (config-info-prev-value obj) curval)
+      newval)))
 
 (defmacro reset-place (place &key (db '*default-db*) previous-value)
   "looks up a place and set it to its default or previous value."
