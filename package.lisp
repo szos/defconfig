@@ -5,13 +5,19 @@
   (:import-from #:trivial-cltl2 #:compiler-let)
   (:export #:defconfig
 	   
-	   ;; setters and access functions/macros
+	   ;; setters and searchers
 	   #:setv
 	   #:setv-atomic
 	   #:with-atomic-setv
 	   #:reset-place
 	   #:config-info-search
 
+	   ;; access functions/macros
+	   #:config-info-default-value
+	   #:config-info-prev-value
+           #:config-info-valid-values-description
+	   #:config-info-docstring
+           
 	   ;; errors
 	   #:config-error
 	   #:invalid-datum-error
