@@ -1,20 +1,28 @@
+(unless (find-package :fiveam)
+  (error "Please load fiveam to run the test suite"))
+
 (defpackage #:defconfig.test
   (:use #:cl)
   (:local-nicknames (#:am #:fiveam))
   (:import-from #:defconfig #:defconfig #:setv #:with-atomic-setv #:setv-atomic
-		#:config-info-search #:make-config-database #:reset-place)
+		#:config-info-search #:make-config-database #:reset-place
+		#:define-defconfig-db #:get-db #:delete-db)
   (:import-from #:fiveam #:is #:signals))
 
 (in-package :defconfig.test)
 
-(unless (find-package :fiveam)
-  (error "Please load fiveam to run the test suite"))
+(am:test clean
+  (am:is (and (boundp '*testing-db*)
+	      (get-db :testing)
+	      (delete-db :testing t))))
 
 (am:test makedb
-  (defvar *testing-db* (make-config-database))
-  (am:is (listp *testing-db*))
+  (define-defconfig-db *testing-db* :testing)
+  ;; (defvar *testing-db* (make-config-database))
+  (am:is (consp *testing-db*))
   (am:is (hash-table-p (car *testing-db*)))
-  (am:is (hash-table-p (cdr *testing-db*))))
+  (am:is (hash-table-p (cdr *testing-db*)))
+  (am:is (eq (get-db :testing) *testing-db*)))
 
 (am:test test-defconfig
   (defconfig *light-dark* 'dark :typespec '(member dark light)
