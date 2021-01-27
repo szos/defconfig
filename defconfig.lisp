@@ -205,7 +205,7 @@ passing KEY to the function getdb"
 				 ,hash)
 		       `(gethash ',place ,hash))))
        (if ,validated
-	   ,@(cond ((and reinitialize (listp place))
+	   ,@(cond ((and reinitialize (listp place) (= (length place) 2))
 		    `((setf ,place ,hold)))
 		   (reinitialize
 		    `((defparameter ,place ,hold
@@ -253,6 +253,50 @@ passing KEY to the function getdb"
 (defmacro defconfig (place default-value &key validator typespec coercer
 					   reinitialize regen-config name
 					   documentation tags (db '*default-db*))
+  "Defconfig defines a config-info object and potentially a dynamic variable. 
+
+PLACE can be a symbol or a list. If it is a symbol it is assumed to be a dynamic 
+variable. If a config-info object has already been generated and placed in DB, 
+another one is not generated unless REGEN-CONFIG is true. Similarly, if 
+REINITIALIZE is false we generate a defvar call of: 
+; (defvar PLACE DEFAULT-VALUE DOCUMENTATION)
+wheras if it is true we generate ; (defparameter PLACE DEFAULT-VALUE DOCUMENTATION)
+
+If place is a list it is assumed to be an accessor or other setf-able function
+call (ie something defined with defsetf). This can be either a list of one element
+(the function), or a list of two elements (the function and the specific object 
+to dispatch upon). If it is a list of two elements a config-info object will be 
+generated which gets used iff the function and the object are used together in a 
+call to setv. If it is a list of one element then any object can be used alongside
+it in a call to setv and it will be used. If REINITIALIZE is true and the length of
+PLACE is 2 then PLACE is set to the default value. REGEN-CONFIG is as above. 
+
+VALIDATOR and TYPESPEC may not coexist in a single defconfig call. VALIDATOR is for
+providing a function to validate values. It must take a single value, the value to
+validate. TYPESPEC takes a type specification and generates a validation function 
+from it. 
+
+If provided, COERCER must be a function taking a single argument: the value to
+coerce. It is called iff an invalid value is passed to setv, and it is called on 
+the invalid value in an attempt to generate a valid one. The return value of 
+COERCER is checked against the VALIDATOR (or the function generated with TYPESPEC) 
+and if it is valid it is used in place of the original value.
+
+DOCUMENTATION is the documentation of PLACE and is used in the defvar/defparameter
+form when PLACE is a symbol and is placed in the config-info object regardless of 
+whether PLACE is a symbol or a list.
+
+DB is the database to place the generated config-info object into, and defaults to
+*default-db*. Defconfig does not check if DB is in the plist of databases before 
+placing the config-info object into DB. It is assumed that if a DB has been removed
+from the database plist the user has a good understanding of what they are doing 
+and is managing the database themselves. (databases must be manually removed from
+the plist). 
+
+NAME is a string naming the generated config-info object. it is currently unused. 
+
+TAGS are strings that can be used to search for a config-info object. The search 
+functionality is currently only partially implemented. "
   (when (and validator typespec)
     (error "A validator and typespec keyargs cannot both be provided to defconfig"))
   (cond (validator
