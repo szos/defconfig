@@ -95,9 +95,9 @@
 		  :reader invalid-coerced-datum-error-value))
   (:report
    (lambda (c s)
-     (with-slots (place-form value) c
-       (format s "The value ~S is invalid for place ~S, and was unable to be coerced to a valid value"
-	       value place-form)))))
+     (with-slots (place-form value coerced-value) c
+       (format s "The value ~S is invalid for place ~S, and coercion produced the value ~S, which is also invalid"
+	       value place-form coerced-value)))))
 
 (define-condition no-config-found-error (config-error)
   ((place-form :initarg :place :reader no-config-found-error-place :initform nil)
