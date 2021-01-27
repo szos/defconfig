@@ -21,7 +21,9 @@
 (defclass config-info-metadata ()
   ((name :initarg :name :initform "Unnamed config-info object"
 	 :accessor config-info-name
-	 :documentation "The formal name by which this config-info object can be searched for")
+	 :documentation "The formal name by which this config-info object can be searched for"
+	 ;; one cant yet search by name - searching needs to be reworked/rethought
+	 )
    (tags :initarg :tags :initform '() :accessor config-info-tags
 	 :documentation "Tags which can be used for finding a config-info object")
    (docstring :initarg :documentation :initform nil
