@@ -3,7 +3,7 @@
 (defpackage #:defconfig
   (:use #:cl)
   (:import-from #:trivial-cltl2 #:compiler-let)
-  (:export #:defconfig
+  (:export #:defconfig ; main macro
 	   
 	   ;; setters and searchers
 	   #:setv
@@ -13,7 +13,7 @@
 	   #:reset-computed-place
 	   #:config-info-search
 
-	   ;; access functions/macros
+	   ;; accessors
 	   #:config-info-default-value
 	   #:config-info-prev-value
            #:config-info-valid-values-description
