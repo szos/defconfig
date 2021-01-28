@@ -1,4 +1,3 @@
-;; -*- mode: Lisp; -*-
 
 (in-package :defconfig)
 
