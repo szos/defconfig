@@ -9,5 +9,14 @@
   :depends-on (#:alexandria #:trivial-cltl2)
   :components ((:file "package")
                (:file "defconfig")
-	       (:file "setv")
-	       (:file "access")))
+               (:file "setv")
+               (:file "access")))
+
+(asdf:defsystem #:defconfig.test
+  :description "test suite for defconfig"
+  :author "Your Name <your.name@example.com>"
+  :license "GPLv3"
+  :version "0.0.1"
+  :serial t
+  :depends-on (#:fiveam #:defconfig)
+  :components ((:file "tests/defconfig-tests")))
