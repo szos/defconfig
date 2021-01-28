@@ -16,6 +16,11 @@
 	 (progn ,@body)
 	 (error 'no-config-found-error :place ',place :db ',db))))
 
+(defun tag-configurable-place (tag place &key (db *default-db*))
+  "Push TAG onto the list of tags for the config-info object associated with 
+PLACE in DB."
+  (push tag (config-info-tag-list (place->config-info place :db db))))
+
 (defun config-info-search-tags (tags &key (namespace :both) (db *default-db*))
   (flet ((fmap ()
 	   (let (fobjs)
