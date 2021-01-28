@@ -12,6 +12,16 @@
                (:file "setv")
                (:file "access")))
 
+(asdf:defsystem #:defconfig.test
+  :description "test suite for defconfig"
+  :author "Your Name <your.name@example.com>"
+  :license "GPLv3"
+  :version "0.0.1"
+  :serial t
+  :depends-on (#:fiveam #:defconfig)
+  :components ((:file "tests/defconfig-tests")))
+
+
 (asdf:defsystem #:defconfig-gui
   :description "A CLIM based GUI for defconfig"
   :author "Your Name <your.name@example.com>"
