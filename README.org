@@ -35,7 +35,11 @@
   (defconfig:setv *background-color* "#000000")
   (defconfig:setv *background-color* "i dont know what this user is thinking!")
 #+END_SRC
-   The first of these works without a hitch; ~setv~ determines that it is a valid value as per the typespec the user provided, and sets ~*background-color*~ to black. The second of these would fail if we hadnt provided a coercer, but as we did, and it knows how to handle color strings, we generate a color from the color string and ~*background-color*~ gets set to black. The third of these is also a string, but its impossible to parse a color from it. Assuming ~parse-color-from-string~ returns ~nil~ on invalid strings, we return ~value~ and signal an error; ~*background-color*~ remains white. 
+   The first of these works without a hitch; ~setv~ determines that it is a valid value as per the typespec the user provided, and sets ~*background-color*~ to black. 
+
+   The second of these would fail if we hadnt provided a coercer, but as we did, and it knows how to handle color strings, we generate a color from the color string and ~*background-color*~ gets set to black. 
+
+   The third of these is also a string, but its impossible to parse a color from it. Assuming ~parse-color-from-string~ returns ~nil~ on invalid strings, we return ~value~ and signal an error; ~*background-color*~ remains white. 
 ** With-atomic-setv 
    Lets look at an example of ~with-atomic-setv~. We will define a bounded number variable, and then try setting it while signalling various errors. 
 #+BEGIN_SRC lisp
