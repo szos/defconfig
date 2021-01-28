@@ -9,7 +9,7 @@
 * Regarding This Readme
   This readme is not a complete explanation of defconfig. Please see =package.lisp= for a list of exported symbols and see the symbol docstrings for a better idea of what the function/macro/generic/error/etc does. Most (exported) functions/macros are well documented, accessors have decent slot documentation describing their purpose/use, and errors should be grokkable from their ~:report~ functions. Do note that currently accessors are exported, but they should not be depended upon, and instead readers will be exported once they are written. 
 
-* In Depth Usage
+* Basic Tutorial
   Lets look at an example where one is defining a user-exposed variable for the background color of an application. We will define a configuration object which checks that the value is indeed a color, and a coercer that tries to parse invalid values into a color object. finally we will use ~setv~ and ~with-atomic-setv~ to modify this value. 
 ** Setup 
    ~(defpackage :my-app (:use :cl))~
