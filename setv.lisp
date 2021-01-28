@@ -145,6 +145,10 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 		       collect `(setf ,place ,gensym))
 	       (error ,c))))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Compile-time with-atomic-setv ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defmacro %atomic-setv-reset (&key (pop t))
   "this macro resets all encountered places within a call to with-atomic-setv."
   (declare (special *setv-place-accumulator*))
@@ -174,8 +178,8 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 	       collect `(%setv-with-reset ,block-name ,reset-on-errors
 					  ,p ,v ,db)))))
 
-(defmacro with-atomic-setv ((&key (re-error t) (handle-errors '(error)))
-			    &body body)
+(defmacro with-compile-time-atomic-setv
+    ((&key (re-error t) (handle-errors '(error))) &body body)
   "This macro causes every call to setv to, on an invalid value, reset the place
 in question to its previous value, as well as any previously encountered places.
 When supplied, HANDLE-ERRORS should be an unquoted list of errors to handle. In 
@@ -196,3 +200,55 @@ be caught - they will propogate up out of with-atomic-setv."
 	 (if (and ,re-error (typep ,c '(or ,@handle-errors)))
 	     (error 'setv-wrapped-error :error ,c)
 	     ,c)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Runtime with-atomic-setv ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmacro %runtime-atomic-setv-reset (&key pop)
+  `(let ((already-reset nil))
+     (loop for (var val) in (reverse
+			     ,(if pop
+				  '(cdr with-atomic-setv-accumulator)
+				  'with-atomic-setv-accumulator))
+	   unless (member var already-reset)
+	     do (setf (symbol-value var) val)
+		(push var already-reset))))
+
+(defmacro %runtime-setv-with-reset (block-name reset-errors place value db)
+  (alexandria:with-gensyms (c)
+    `(progn
+       (push (list ',place ,place)
+	     with-atomic-setv-accumulator)
+       (handler-case (%setv ,place ,value ,db)
+	 ((or ,@reset-errors) (,c)
+	   (%runtime-atomic-setv-reset :pop t)
+	   (return-from ,block-name ,c))))))
+
+(defmacro %runtime-atomic-setv (block-name reset-errors &rest args)
+  (destructuring-keys (pairs (:db '*default-db*)) args
+    `(progn
+       ,@(loop for (p v) on pairs by 'cddr
+	       collect `(%runtime-setv-with-reset ,block-name ,reset-errors
+					      ,p ,v ,db)))))
+
+(defmacro with-runtime-atomic-setv ((&key (re-error t) (handle-errors '(error)))
+				&body body)
+  (alexandria:with-gensyms (block-name args c inner-c)
+    `(let ((,c (block ,block-name
+		 (let ((with-atomic-setv-accumulator nil))
+		   (macrolet ((setv (&rest ,args)
+				`(%runtime-atomic-setv ,',block-name ,',handle-errors
+						   ,@,args)))
+		     (handler-case (progn ,@body)
+		       ((or ,@handle-errors) (,inner-c)
+			 (%runtime-atomic-setv-reset)
+			 (return-from ,block-name ,inner-c))))))))
+       (if (and ,re-error (typep ,c '(or ,@handle-errors)))
+	   (error 'setv-wrapped-error :error ,c)
+	   ,c))))
+
+(defmacro with-atomic-setv ((&key (re-error t) (handle-errors '(error)))
+			    &body body)
+  `(with-runtime-atomic-setv (:re-error ,re-error :handle-errors ,handle-errors)
+     ,@body))
