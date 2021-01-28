@@ -14,7 +14,7 @@
 ** Setup 
    ~(defpackage :my-app (:use :cl))~
 ** Defconfig
-   Here we define a variable called ~*background-color*~ which holds a default value of the color white. It may only hold a color object. If we try to set it to a string, we try to parse a color object from the string. If that fails or we get something other than a string, we return the original value. We do this because value has been determined to be invalid before our coercer got called, and if we cannot make a color we want to be certain that we return an invalid value. We then tag the configuration object with "color" and "background" such that it can be searched for by those names.
+   Here we define a variable called ~*background-color*~ which holds a default value of the color white. It may only hold a color object. If we try to set it to a string, we try to parse a color object from the string. If that fails or we get something other than a string, we return the original value. We do this because the coercer is only ever called on an invalid value, and if we cannot make a color object from it we want to be certain that we return an invalid value. We then tag the configuration object with “color” and “background” such that it can be searched for by those names.
 #+BEGIN_SRC lisp
   (in-package :my-app)
 
@@ -35,7 +35,7 @@
   (defconfig:setv *background-color* "#000000")
   (defconfig:setv *background-color* "i dont know what this user is thinking!")
 #+END_SRC
-   The first of these works without a hitch; ~setv~ determines that it is a valid value as per the typespec the user provided, and sets ~*background-color*~ to black. The second of these would fail if we hadnt provided a coercer, but as we did, and it knows how to handle color strings, we generate a color from the color string and ~*background-color*~ gets set to black. The third of these is also a string, but its impossible to parse a color from it. Assuming ~parse-color-from-string~ returns ~nil~ on invalid strings, we return value and signal an error. ~*background-color*~ remains white. 
+   The first of these works without a hitch; ~setv~ determines that it is a valid value as per the typespec the user provided, and sets ~*background-color*~ to black. The second of these would fail if we hadnt provided a coercer, but as we did, and it knows how to handle color strings, we generate a color from the color string and ~*background-color*~ gets set to black. The third of these is also a string, but its impossible to parse a color from it. Assuming ~parse-color-from-string~ returns ~nil~ on invalid strings, we return ~value~ and signal an error; ~*background-color*~ remains white. 
 ** With-atomic-setv 
    Lets look at an example of ~with-atomic-setv~. We will define a bounded number variable, and then try setting it while signalling various errors. 
 #+BEGIN_SRC lisp
@@ -63,9 +63,11 @@
     (compute-something-that-signals-an-error)
     (setv *bounded-number* 2))
 #+END_SRC
-   The first of the calls to ~with-atomic-setv~ first sets ~*bounded-number*~ to ~1~, and then encounters an error when trying to set it to ~50~. It catches that error and resets ~*bounded-number*~ to 0. 
-   The second of these first sets ~*bounded-number*~ to ~1~, and then an error is signalled by ~(compute-something-that-signals-an-error)~. It catches this error and resets ~*bounded-number*~ to 0. 
-   The third of these first sets ~*bounded-number*~ to ~1~, and then an error is signalled that it is not set up to handle. Whether or not it attempts to set ~*bounded-number*~ to ~2~ is determined by what handlers and restarts are set up around the error. If there is a restart that doesnt unwind the stack then ~*bounded-number*~ will be set to ~2~, but if there is a non-local transfer of control to a point outside of ~with-atomic-setv~ then ~*bounded-number*~ will remain set to ~1~. 
+   The first of the calls to ~with-atomic-setv~ first sets ~*bounded-number*~ to 1, and then encounters an error when trying to set it to 50. It catches that error and resets ~*bounded-number*~ to 0, the value ~*bounded-number*~ had before the call to ~with-atomic-setv~. 
+
+   The second of these first sets ~*bounded-number*~ to 1, and then an error is signalled by ~(compute-something-that-signals-an-error)~. It catches this error and resets ~*bounded-number*~ to 0. 
+
+   The third of these first sets ~*bounded-number*~ to 1, and then an error is signalled that it is not set up to handle; it will only catch errors of type ~config-error~. Whether or not it attempts to set ~*bounded-number*~ to 2 is determined by what handlers and restarts are set up around the error. If there is a restart that doesnt unwind the stack then ~*bounded-number*~ will be set to 2, but if there is a non-local transfer of control to a point outside of ~with-atomic-setv~ then ~*bounded-number*~ will remain set to 1. This is the only way to escape ~with-atomic-setv~ that leaves things in a partially configured state.
 * A Note About Reset-Place
   The macro ~reset-place~ (and by extension the function ~reset-computed-place~) could be a little confusing. It takes a place, and resets it to its default value. However if ~previous-value~ is true, then it resets to the previous value instead. Before setting, it checks if the current value is eql to the value to reset to (this can be controlled with ~already-reset-test~) and if it is it isnt reset as it would have no effect. If it isnt, we both reset the place, AND set the ~previous-value~ slot to the (now no longer) current value. thusly, if the default value is a, previous value is b, and current value is c, and we reset to the default value, we will have a default of a, previous of c, and current of a. If we had instead reset to the previous value, we effectively swap the previous and current values. 
   Furthermore, we cannot reset any accessor places at the moment
