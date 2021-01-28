@@ -12,10 +12,11 @@
 	   #:reset-place
 	   #:reset-computed-place
 	   #:config-info-search
+	   #:tag-configurable-place
 
 	   ;; accessors
 	   #:config-info-default-value
-	   #:config-info-prev-value
+	   #:config-info-previous-value
            #:config-info-valid-values-description
 	   #:config-info-documentation
 	   #:config-info-place
