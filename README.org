@@ -66,27 +66,6 @@
    The first of the calls to ~with-atomic-setv~ first sets ~*bounded-number*~ to ~1~, and then encounters an error when trying to set it to ~50~. It catches that error and resets ~*bounded-number*~ to 0. 
    The second of these first sets ~*bounded-number*~ to ~1~, and then an error is signalled by ~(compute-something-that-signals-an-error)~. It catches this error and resets ~*bounded-number*~ to 0. 
    The third of these first sets ~*bounded-number*~ to ~1~, and then an error is signalled that it is not set up to handle. Whether or not it attempts to set ~*bounded-number*~ to ~2~ is determined by what handlers and restarts are set up around the error. If there is a restart that doesnt unwind the stack then ~*bounded-number*~ will be set to ~2~, but if there is a non-local transfer of control to a point outside of ~with-atomic-setv~ then ~*bounded-number*~ will remain set to ~1~. 
-** With-atomic-setv
-   Now lets look at how ~with-atomic-setv~ might be used here. We will look at four examples, however every example will signal an error at some point. For the purposes of this example, assume we have a variable called ~*foreground-color*~ with the same definition as ~*background-color*~, except its initial (and default) value is black. 
-#+BEGIN_SRC lisp
-  (defconfig:with-atomic-setv ()
-    (setv *foreground-color* (make-color :r 50 :g 50 :b 0))
-    (compute-some-stuff *foreground-color*)
-    (setv *background-color* 5))
-
-  (defconfig:with-atomic-setv ()
-    (setv *foreground-color* (make-color :r 50 :g 50 :b 0))
-    (compute-some-stuff-that-signals-an-error *foreground-color*)
-    (setv *background-color* "#00ffac"))
-
-  (defconfig:with-atomic-setv (:handle-errors (defconfig:config-error))
-    (setv *foreground-color* (make-color :r 50 :g 50 :b 0))
-    (compute-some-stuff-that-signals-an-error *foreground-color*)
-    (setv *background-color* "#00ffac"))
-#+END_SRC
-   The first of these signals an error upon trying to set ~*background-color*~ to ~5~, and resets ~*foreground-color*~ back to its value before entering ~with-atomic-setv~ (in this case the color black). any side effects caused by ~compute-some-stuff~ are not reversed, only the places modified by ~setv~ get reset. 
-   In the second of these examples, an error gets signalled after setting ~*foreground-color*~ but before setting ~*background-color*~. Here, ~*background-color*~ is not set, and ~*foreground-color*~ is reset back to black. 
-   In the final example, we have told ~with-atomic-setv~ to only handle ~config-error~, which is the parent type of all errors in defconfig. In this example, the error signalled propogates up out of the ~with-atomic-setv~ form, and no places are reset. Whether or not ~*background-color*~ is set or not depends entirely upon how the signalled error is handled. If the handler doesnt continue further and returns prematurely, ~*background-color*~ will not be set, but if the handler continues, then ~*background-color*~ will be set. 
 * A Note About Reset-Place
   The macro ~reset-place~ (and by extension the function ~reset-computed-place~) could be a little confusing. It takes a place, and resets it to its default value. However if ~previous-value~ is true, then it resets to the previous value instead. Before setting, it checks if the current value is eql to the value to reset to (this can be controlled with ~already-reset-test~) and if it is it isnt reset as it would have no effect. If it isnt, we both reset the place, AND set the ~previous-value~ slot to the (now no longer) current value. thusly, if the default value is a, previous value is b, and current value is c, and we reset to the default value, we will have a default of a, previous of c, and current of a. If we had instead reset to the previous value, we effectively swap the previous and current values. 
   Furthermore, we cannot reset any accessor places at the moment
