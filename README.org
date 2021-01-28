@@ -78,28 +78,24 @@
 
 * Macros
 ** Defconfig
-   The ~defconfig~ macro generates a config-info object and registers it in a database. The signature is *defconfig* /place default-value &key validator valid-values coercer reinitialize regen-config test documentation tags/ => /config-info/
-*** Arguments and Values
-**** place
-     a place to register a config-info object for. This should be the same as what you would use in ~setf~. If this is a symbol it is placed in the variable hash. if it is a list, it is placed in the accessor hash. When being placed in the accessor hash, there are two possible config-info objects. If the list is of length one, we register a config-info object for all calls to that accessor. If the list length is greater than one, we register a config-info object for that accessor and argument. Hence, we can have a config-info object for ~(accessor ...)~ and an object for ~(accessor *somevar*)~. When we use ~setv~ on ~(accessor *somevar*)~ we will use second object, but if we use it on ~(accessor *othervar*)~ we will use the first object. 
-**** default-value 
-     This is the default value for place /place/. It is stored in the config-info object. 
-**** validator
-     This is the predicate used to validate potential values. It must take one argument and return truthy or false. 
-**** typespec
-     When provided, a predicate function is built to check any potential values against this typespec. /typespec/ and /validator/ are mutually exclusive. If neither are provided, the identity function is used for /validator/.
-**** coercer
-     When provided, coercion is attempted on any invalid values using this function. This function should return the original value if it is unable to coerce a value acceptably. 
-**** reinitialize
-     When truthy, variables will be created/reinitialized using defparameter. When /place/ is an accessor, it is set to /default-value/ using ~setf~. 
-**** regen-config
-     When true, the config-info object is regenerated, regardless of whether it exists or not. 
-**** documentation
-     the docstring for /place/, stored in the config-info object. If place is a variable, then the appropriate ~def(var|parameter)~ form is generated to use it. 
-**** tags
-     These are used for searching for a config-info object. 
-**** db
-     The database into which the resulting config-info object will be placed. A database can be generated with ~make-config-database~.
+   The ~defconfig~ macro generates a config-info object and registers it in a database. The signature is *defconfig* /place default-value &key validator typespec coercer reinitialize regen-config name documentation tags db/ => /config-info/
+   - *Side Effects*:
+     - Causes the /config-info/ object to be placed into /db/
+     - May cause /place/ to be set to /default-value/
+     - May cause /place/ to be defined in the global scope
+     - Any side effects of running /validator/.
+   - Arguments and Values
+     - /place/ - either a symbol or a list denoting a setf-able function
+     - /default-value/ - the default value for /place/. Must conform to /validator/ or /typespec/ when provided
+     - /validator/ - a function of one argument which returns true when its argument is valid for /place/ and nil when it is invalid. May not be provided alongside /typespec/
+     - /typespec/ - a type specifier denoting valid types for /place./ May not be provided alongside /validator/
+     - /coercer/ - a function of one argument which should attempt to coerce its argument to a valid value.
+     - /reinitialize/ - when true, and /place/ is a symbol, will reinitialize place by generating a defparameter form with /place/, /default-value/, and /documentation/. 
+     - /regen-config/ - when true /config-info/ will be regenerated and replace any preexisting object.
+     - /name/ - the name to give /config-info/.
+     - /documentation/ - documentation for /config-info/. Will also be used for any generated defvar or defparameter form.
+     - /tags/ - a list of strings used in searching for a config object.
+     - /db/ - the database to place /config-info/ into. 
 ** Setv
    The ~setv~ macro expands into multiple calls to ~%setv~, which validates a value before setting the place to it. It functions the same as ~setf~, but accepts the keyword ~:db~ to specify a database other than the default one provided by ~defconfig~. 
 ** Setv-atomic
