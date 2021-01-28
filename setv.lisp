@@ -178,15 +178,11 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 	       collect `(%setv-with-reset ,block-name ,reset-on-errors
 					  ,p ,v ,db)))))
 
-(defmacro with-compile-time-atomic-setv
+(defmacro with-atomic-setv*
     ((&key (re-error t) (handle-errors '(error))) &body body)
-  "This macro causes every call to setv to, on an invalid value, reset the place
-in question to its previous value, as well as any previously encountered places.
-When supplied, HANDLE-ERRORS should be an unquoted list of errors to handle. In 
-this context, handling an error means catching it, resetting all values changed
-via setv, and if RE-ERROR is t, signal an error of type setv-wrapped-error. Any 
-error types not present in HANDLE-ERRORS will not cause a reset and will not 
-be caught - they will propogate up out of with-atomic-setv."
+  "This macro functions the same as WITH-ATOMIC-SETV, but tracks value via the 
+previous-value slot instead of in a list. As such any given place may be setv-ed
+once within BODY."
   (alexandria:with-gensyms (args block-name c inner-c)
     `(compiler-let ((*setv-place-accumulator* nil))
        (let ((,c (block ,block-name
@@ -250,5 +246,12 @@ be caught - they will propogate up out of with-atomic-setv."
 
 (defmacro with-atomic-setv ((&key (re-error t) (handle-errors '(error)))
 			    &body body)
+  "This macro causes every call to setv to, on an invalid value, reset the place
+in question to its previous value, as well as any previously encountered places.
+When supplied, HANDLE-ERRORS should be an unquoted list of errors to handle. In 
+this context, handling an error means catching it, resetting all values changed
+via setv, and if RE-ERROR is t, signal an error of type setv-wrapped-error. Any 
+error types not present in HANDLE-ERRORS will not cause a reset and will not 
+be caught - they will propogate up out of with-atomic-setv."
   `(with-runtime-atomic-setv (:re-error ,re-error :handle-errors ,handle-errors)
      ,@body))

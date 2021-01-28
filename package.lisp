@@ -9,6 +9,7 @@
 	   #:setv
 	   #:setv-atomic
 	   #:with-atomic-setv
+	   #:with-atomic-setv*
 	   #:reset-place
 	   #:reset-computed-place
 	   #:clean-previous-value 
