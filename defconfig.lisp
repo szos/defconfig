@@ -5,34 +5,36 @@
 (defclass config-info-functions ()
   ((predicate :initarg :predicate :initform #'identity
               :type (function (*) boolean)
-              :accessor config-info-predicate
+              :reader config-info-predicate
               :documentation "The predicate against which valid values are checked")
-   (coercer :initarg :coercer :initform nil :accessor config-info-coercer
+   (coercer :initarg :coercer :initform nil :reader config-info-coercer
             :documentation "The function by which invalid datum will attempt to be coerced")))
 
 (defclass config-info-direct-info ()
-  ((db :initarg :db :accessor config-info-db
+  ((db :initarg :db :reader config-info-db
        :documentation "the database that the config info object is housed in.")
-   (place :initarg :place :accessor config-info-place
+   (place :initarg :place :reader config-info-place
           :documentation "The place which this config info governs.")
-   (default-value :initarg :default :accessor config-info-default-value
+   (default-value :initarg :default :reader config-info-default-value
                   :documentation "The default value of this config-info object")
    (prev-value :initarg :previous :accessor config-info-prev-value
+	       :reader config-info-previous-value
                :documentation "holds the value previously assigned to the config-info object. initially the same as default-value")))
 
 (defclass config-info-metadata ()
   ((name :initarg :name :initform "Unnamed config-info object"
-         :accessor config-info-name
+         :reader config-info-name
          :documentation "The formal name by which this config-info object can be searched for"
          ;; one cant yet search by name - searching needs to be reworked/rethought
          )
-   (tags :initarg :tags :initform '() :accessor config-info-tags
+   (tags :initarg :tags :initform '() :reader config-info-tags
+	 :accessor config-info-tag-list
          :documentation "Tags which can be used for finding a config-info object")
    (docstring :initarg :documentation :initform nil
-              :accessor config-info-documentation
+              :reader config-info-documentation
               :documentation "The docstring for the place being governed. if a variable it is the same as the variables docstring")
    (valid-values :initarg :valid-values :initform :unset
-                 :accessor config-info-valid-values-description
+                 :reader config-info-valid-values-description
                  :documentation "An explanation of the valid values and predicate function")))
 
 (defclass config-info (config-info-metadata config-info-functions
@@ -271,31 +273,32 @@ database"
                           `((defvar ,place ,hold
                               ,@(when documentation (list documentation)))))))
            (error 'invalid-datum-error :place ',place :value ,hold))
-       (when (or (not ,obj) (and ,obj ,regen-config))
-         (setf ,(if (listp place)
-                    `(gethash ',(if (= (length place) 1)
-                                    (car place)
-                                    place)
-                              ,hash)
-                    `(gethash ',place ,hash))
-               (make-instance 'config-info
-                              ,@(when predicate
-                                  `(:predicate ,pred))
-                              ,@(when coercer
-                                  `(:coercer ,coercer))
-                              ,@(when documentation
-                                  `(:documentation ,documentation))
-                              :name ,(if name
-                                         name
-                                         (format nil "config-info object for ~A"
-                                                 place))
-                              ,@(when tags
-                                  `(:tags ,tags))
-                              :place ',place
-                              :default ,hold
-                              ,@(when valid-values-list
-                                  `(:valid-values ,valid-values-list))
-                              :db ',db))))))
+       (if (or (not ,obj) (and ,obj ,regen-config))
+	   (setf ,(if (listp place)
+		      `(gethash ',(if (= (length place) 1)
+				      (car place)
+				      place)
+				,hash)
+		      `(gethash ',place ,hash))
+		 (make-instance 'config-info
+				,@(when predicate
+				    `(:predicate ,pred))
+				,@(when coercer
+				    `(:coercer ,coercer))
+				,@(when documentation
+				    `(:documentation ,documentation))
+				:name ,(if name
+					   name
+					   (format nil "config-info object for ~A"
+						   place))
+				,@(when tags
+				    `(:tags ,tags))
+				:place ',place
+				:default ,hold
+				,@(when valid-values-list
+				    `(:valid-values ,valid-values-list))
+				:db ',db))
+	   ,obj))))
 
 (defmacro %defconf-vv-intermediary (place default &key predicate coercer name
                                                     reinitialize regen-config
