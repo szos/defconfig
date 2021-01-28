@@ -75,6 +75,11 @@
       (make-pane 'clim-extensions:box-adjuster-gadget)
       (1/4 interactor)))))
 
+(defconfig (configurator-current-config-info) nil
+  :typespec '(or null defconfig::config-info)
+  :documentation "force the current-config-info slot to hold either nil or a config-info object."
+  :tags '("config-info" "current-config-info" "defconfig-gui"))
+
 (defun app-main ()
   (run-frame-top-level (make-application-frame 'defconfig-configurator)))
 
@@ -157,7 +162,14 @@
 		      (format-color pane *config-symbol-color* "~A"
 				    (symbol-name k)))
 		    (slim:cell
-		      (format pane "~S" (symbol-value k))))))
+		      (cond ((and accessor (listp k) (= 2 (length k)))
+			     (if (symbolp (cadr k))
+				 (format pane "~S"
+					 (funcall (car k) (symbol-value (cadr k))))
+				 (format pane "Unable to compute current value")))
+			    (accessor
+			     (format pane "Plain accessors have no current value"))
+			    (t (format pane "~S" (symbol-value k))))))))
 	      db)))))
 
 (let (key dbname db)
