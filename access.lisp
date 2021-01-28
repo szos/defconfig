@@ -86,11 +86,11 @@ list of symbols representing an accessor and a place."
       newval)))
 
 (defmacro reset-place (place &key (db '*default-db*) previous-value)
-  "looks up a place and set it to its default or previous value."
+  "looks up PLACE in DB and set it to its default or previous value."
   `(reset-computed-place ',place :db ,db :previous-value ,previous-value))
 
 (defun clean-previous-value (place &key (db *default-db*))
-  "use to set the previous value of place to the default value. This is useful for
+  "use to set the previous value of PLACE to the default value. This is useful for
 places that may hold a large object which you want gc'd"
   (with-config-info (obj place :db db)
     (setf (config-info-prev-value obj) (config-info-default-value obj))))

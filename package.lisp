@@ -11,6 +11,7 @@
 	   #:with-atomic-setv
 	   #:reset-place
 	   #:reset-computed-place
+	   #:clean-previous-value 
 	   #:config-info-search
 	   #:tag-configurable-place
 
