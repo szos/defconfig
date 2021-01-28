@@ -122,6 +122,34 @@
   (is (and (equal *bounded-number* 2)
 	   (equal *other-bounded-number* 2))))
 
+(am:test test-for-prev-value-with-atomic-setv
+  (defconfig *bounded-number* 0 :typespec '(integer 0 10)
+    :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
+    :documentation "A number with the bounds 0 to 10 inclusive"
+    :tags '("bounded number" "integer") :db *testing-db*
+    :reinitialize t :regen-config t)
+  (signals defconfig:config-error
+    (with-atomic-setv ()
+      (setv *bounded-number* 1
+	    :db *testing-db*)
+      (setv *bounded-number* 2
+	    :db *testing-db*)
+      (setv *bounded-number* 50
+	    :db *testing-db*)))
+  (is (= *bounded-number* 0))
+  (is (= (setv *bounded-number* 5
+	       :db *testing-db*)
+	 5))
+  (signals defconfig:config-error
+    (with-atomic-setv ()
+      (setv *bounded-number* 1
+	    :db *testing-db*)
+      (setv *bounded-number* 2
+	    :db *testing-db*)
+      (setv *bounded-number* 50
+	    :db *testing-db*)))
+  (is (= *bounded-number* 5)))
+
 (am:test test-setv-atomic
   (is (eql (setv *light-dark* 'dark
 		 :db *testing-db*)
