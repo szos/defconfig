@@ -43,20 +43,28 @@
       ((:variables) (list nil (vmap)))
       (otherwise (list (fmap) (vmap))))))
 
-(defun config-info-search (term &key (namespace :both) (db *default-db*))
-  ;; "Takes a string or list of strings, as well as a namespace and a database, and searches for objects with the 
-;; provided tags in the namespace of the provided database. Returns a list whose car is the list of objects in 
-  ;; accessor namespace and whose cadr is the list of objects in variable namespace. "
-  "takes a term, as well as a namespace and a database. the :db keyarg should be a database as returned by 
-make-config-database. the :namespace keyarg should be one of :both :accessor or :variable. Note that the namespace 
-keyarg isnt used if term is a symbol. Term should be either a string, a list of strings, a symbol, or an list of
-symbols representing an accessor and a place."
+(defun config-info-search-in-db (term &key (namespace :both) (db *default-db*))
+  "takes a term, as well as a namespace and a database. the :db keyarg should be a
+database as returned by make-config-database. the :namespace keyarg should be one
+of :both :accessor or :variable. Note that the namespace keyarg isnt used if term
+is a symbol. Term should be either a string, a list of strings, a symbol, or a
+list of symbols representing an accessor and a place."
   (cond ((stringp term)
 	 (config-info-search-tags (list term) :namespace namespace :db db))
 	((list-of-strings-p term)
 	 (config-info-search-tags term :namespace namespace :db db))
 	((or (symbolp term) (listp term))
 	 (place->config-info term :db db))))
+
+(defun search-configurable-objects (term &optional database-key)
+  "Returns a list of all configurable objects matching TERM. "
+  (let ((dbs (if database-key
+		 (list (get-db-var database-key))
+		 (loop for (key (dbsym ahash . vhash)) on *db-plist* by 'cddr
+		       collect dbsym))))
+    (alexandria:flatten
+     (loop for db in dbs
+	   collect (config-info-search-in-db term :db (symbol-value db))))))
 
 (defun reset-computed-place (place &key (db *default-db*) previous-value
 				     (already-reset-test 'eql))
