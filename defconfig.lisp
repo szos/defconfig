@@ -368,35 +368,6 @@ database"
 				:db ',db))
 	   ,obj))))
 
-(defmacro defaccessor-config (place &key validator typespec coercer documentation 
-				      tags name regen-config (db '*default-db*))
-  (cond
-    (typespec
-     `(%defconf-vv-intermediary ,place nil
-				:predicate
-				(lambda (x)
-				  ,(format nil "check if X is of type ~A" typespec)
-				  (typep x ,typespec))
-				:coercer ,coercer
-				:documentation ,documentation :tags ,tags
-				:regen-config ,regen-config :db ,db :name ,name
-				:valid-values-list ,typespec))
-    (validator
-     (%defconfig-accessor place :predicate validator
-				:coercer coercer
-				:regen-config regen-config
-				:name name
-				:tags tags
-				:db db
-				:documentation documentation))
-    (t 
-     (%defconfig-accessor place :coercer coercer
-				:regen-config regen-config
-				:name name
-				:tags tags
-				:db db
-				:documentation documentation))))
-
 (defun %defconfig (place default &key predicate coercer reinitialize 
 				      regen-config documentation tags name db
 				      valid-values-list)
@@ -444,14 +415,10 @@ wheras if it is true we generate
 ; (defparameter PLACE DEFAULT-VALUE DOCUMENTATION)
 
 If PLACE is a list it is assumed to be an accessor or other setf-able function
-call (ie something defined with defsetf). This can be either a list of one 
-element (the function), or a list of two elements (the function and the specific
-object to dispatch upon). If it is a list of two elements a config-info object
-will be generated which gets used iff the function and the object are used
-together in a call to setv. If it is a list of one element then any object can
-be used alongside it in a call to setv and it will be used. If REINITIALIZE is
-true and the length of PLACE is 2 then PLACE is set to the default
-value. REGEN-CONFIG is as above.  
+call (ie something defined with defsetf). It must be a list of one element, the 
+accessor or setf-able function to dispatch upon. If REINITIALIZE is true and the
+length of PLACE is 2 then PLACE is set to the default value. REGEN-CONFIG is as
+ above.  
 
 VALIDATOR and TYPESPEC may not coexist in a single defconfig call. VALIDATOR is
 for providing a function to validate values. It must take a single value, the 
@@ -502,3 +469,34 @@ functionality is currently only partially implemented. "
                      :coercer coercer :reinitialize reinitialize :db db
                      :documentation documentation :tags tags
                      :regen-config regen-config :name name))))
+
+(defmacro defaccessor-config (place &key validator typespec coercer documentation 
+				      tags name regen-config (db '*default-db*))
+  "A version of defconfig for use explicitly with defining accessors. arguments are
+as in defconfig."
+  (cond
+    (typespec
+     `(%defconf-vv-intermediary ,place nil
+				:predicate
+				(lambda (x)
+				  ,(format nil "check if X is of type ~A" typespec)
+				  (typep x ,typespec))
+				:coercer ,coercer
+				:documentation ,documentation :tags ,tags
+				:regen-config ,regen-config :db ,db :name ,name
+				:valid-values-list ,typespec))
+    (validator
+     (%defconfig-accessor place :predicate validator
+				:coercer coercer
+				:regen-config regen-config
+				:name name
+				:tags tags
+				:db db
+				:documentation documentation))
+    (t 
+     (%defconfig-accessor place :coercer coercer
+				:regen-config regen-config
+				:name name
+				:tags tags
+				:db db
+				:documentation documentation))))
