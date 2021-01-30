@@ -6,7 +6,8 @@
   (:local-nicknames (#:am #:fiveam))
   (:import-from #:defconfig #:defconfig #:setv #:with-atomic-setv #:setv-atomic
 		#:config-info-search #:make-config-database #:reset-place
-		#:define-defconfig-db #:get-db #:delete-db)
+		#:define-defconfig-db #:get-db #:delete-db #:*setv-permissiveness*
+		#:defaccessor-config)
   (:import-from #:fiveam #:is #:signals))
 
 (in-package :defconfig.test)
@@ -15,11 +16,11 @@
   (am:is (or (and (boundp '*testing-db*)
 		  (get-db :testing)
 		  (delete-db :testing t))
-	     t)))
+	     t))
+  (am:is (eql (setv *setv-permissiveness* :strict) :strict)))
 
 (am:test makedb
   (define-defconfig-db *testing-db* :testing)
-  ;; (defvar *testing-db* (make-config-database))
   (am:is (consp *testing-db*))
   (am:is (hash-table-p (car *testing-db*)))
   (am:is (hash-table-p (cdr *testing-db*)))
@@ -33,7 +34,6 @@
 		'defconfig::config-info)))
 
 (am:test test-setv
-  ;; (is (eql (setv *light-dark* 'dark :db *testing-db*) 'dark))
   (am:is (eql 'dark *light-dark*))
   (let ((defconfig::*setv-permissiveness* :strict))
     (am:signals defconfig::no-config-found-error
@@ -192,10 +192,22 @@
   (defclass testing-class ()
     ((slot1 :initarg :1 :accessor testing-class-slot-1)
      (slot2 :initarg :2 :accessor testing-class-slot-2)))
-  (defparameter *testing-class* (make-instance 'testing-class :1 1 :2 2))
+  (defparameter *testing-class* (make-instance 'testing-class :1 1 :2 -2))
   (defconfig (testing-class-slot-1) 1 :typespec '(integer -10 10)
     :regen-config t)
   (setv (testing-class-slot-1 *testing-class*) 2)
   (is (= (testing-class-slot-1 *testing-class*) 2))
   (signals defconfig:invalid-datum-error
-    (setv (testing-class-slot-1 *testing-class*) 20)))
+    (setv (testing-class-slot-1 *testing-class*) 20))
+
+  (defaccessor-config (testing-class-slot-2)
+    :typespec `(integer ,most-negative-fixnum 0)
+    :coercer (lambda (x)
+	       (if (numberp x)
+		   (- x)
+		   x))
+    :regen-config t)
+  (is (= (setv (testing-class-slot-2 *testing-class*) 0) 0))
+  (signals defconfig:invalid-datum-error
+    (setv (testing-class-slot-2 *testing-class*) "hi"))
+  (is (= (setv (testing-class-slot-2 *testing-class*) 8) -8)))
