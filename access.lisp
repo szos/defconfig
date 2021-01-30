@@ -5,16 +5,36 @@
     (every 'stringp thing)))
 
 (defun place->config-info (place &key (db *default-db*))
-  (if (listp place)
-      (or (gethash place (car db))
-	  (gethash (car place) (car db)))
-      (gethash place (cdr db))))
+  (let ((rdb (if (symbolp db) (symbol-value db) db)))
+    (if (listp place)
+	(gethash (car place) (car rdb))
+	(gethash place (cdr rdb)))))
 
-(defmacro with-config-info ((var place &key (db '*default-db*)) &body body)
-  `(let ((,var (place->config-info ,place :db ,db)))
-     (if ,var
-	 (progn ,@body)
-	 (error 'no-config-found-error :place ',place :db ',db))))
+(defun %%with-config-info (fn place database policy)
+  (check-type policy (member :strict :greedy))
+  (let ((*setv-permissiveness* policy)
+	(db (cond ((keywordp database) (get-db database))
+		  ((symbolp database) (symbol-value database))
+		  (t database))))
+    (funcall fn (restart-case (%fsetv-get-config-info-object
+			       place (if (listp place) (car db) (cdr db)) database)
+		  (use-value (new-database)
+		    :test (lambda (c)
+			    (and (typep c 'no-config-found-error)
+				 (not (eql (no-config-found-error-db c)
+					   'all-registered-databases))))
+		    :report "Supply a new database"
+		    :interactive (lambda ()
+				   (format *query-io*
+					   "Enter database key or variable: ")
+				   (force-output *query-io*)
+				   (list (read *query-io*)))
+		    (%%with-config-info fn place new-database policy))))))
+
+(defmacro with-config-info ((var place &key (db '*default-db*)
+					 (unfound-policy :strict))
+			    &body body)
+  `(%%with-config-info (lambda (,var) ,@body) ,place ',db ,unfound-policy))
 
 (defun tag-configurable-place (tag place &key (db *default-db*))
   "Push TAG onto the list of tags for the config-info object associated with 
@@ -71,26 +91,63 @@ list of symbols representing an accessor and a place."
      (loop for db in dbs
 	   collect (config-info-search-in-db term :db (symbol-value db))))))
 
-(defun reset-computed-place (place &key (db *default-db*) previous-value
-				     (already-reset-test 'eql))
-  "A function version of reset-place - ie it evaluates its arguments. "
-  (let* ((obj (or (place->config-info place :db db)
-		  (error 'no-config-found-error :place place :db db)))
-	 (curval (symbol-value (config-info-place obj)))
-	 (newval (if previous-value
-		     (config-info-prev-value obj)
-		     (config-info-default-value obj))))
-    (unless (funcall already-reset-test curval newval)
-      (setf (symbol-value (config-info-place obj)) newval
-	    (config-info-prev-value obj) curval)
-      newval)))
+(defgeneric reset-computed-place (place &key db previous-value test)
+  (:documentation
+   "Reset PLACE to its default value, unless PREVIOUS-VALUE is true, then reset to 
+the previous value. TEST is used to check if a reset is needed.")
+
+  (:method ((place symbol) &key (db *default-db*) (test 'eql) previous-value)
+    (with-config-info (obj place :db db)
+      (let ((curval (symbol-value place))
+	    (newval (if previous-value
+			(config-info-previous-value obj)
+			(config-info-default-value obj))))
+	(unless (funcall test curval newval)
+	  (setf (symbol-value place) newval
+		(config-info-prev-value obj) curval)))))
+
+  (:method ((object config-info) &key db (test 'eql) previous-value)
+    (declare (ignore db))
+    (let ((curval (symbol-value (config-info-place object)))
+	  (newval (if previous-value
+		      (config-info-previous-value object)
+		      (config-info-default-value object))))
+      (unless (funcall test curval newval)
+	(setf (symbol-value (config-info-place object)) newval
+	      (config-info-prev-value object) curval))))
+
+  (:method ((place list) &key db test previous-value)
+    (declare (ignore test previous-value))
+    (with-config-info (obj place :db db)
+      (error 'not-resettable-place-error :place place :object obj)))
+
+  (:method ((object accessor-config-info) &key db test previous-value)
+    (declare (ignore db test previous-value))
+    (error 'not-resettable-place-error :place (config-info-place object)
+				       :object object)))
 
 (defmacro reset-place (place &key (db '*default-db*) previous-value)
   "looks up PLACE in DB and set it to its default or previous value."
   `(reset-computed-place ',place :db ,db :previous-value ,previous-value))
 
-(defun clean-previous-value (place &key (db *default-db*))
-  "use to set the previous value of PLACE to the default value. This is useful for
-places that may hold a large object which you want gc'd"
-  (with-config-info (obj place :db db)
-    (setf (config-info-prev-value obj) (config-info-default-value obj))))
+(defgeneric clean-previous-value (place &key db)
+  (:documentation
+   "use to set the previous value of PLACE to the default value. This is useful for
+places that may hold a large object which you want gc'd")
+  
+  (:method ((place symbol) &key (db *default-db*))
+    (with-config-info (object place :db db)
+      (setf (config-info-prev-value object) (config-info-default-value object))))
+  
+  (:method ((object config-info) &key db)
+    (declare (ignore db))
+    (setf (config-info-prev-value object) (config-info-default-value object)))
+  
+  (:method ((place list) &key db)
+    (with-config-info (object place :db db)
+      (error 'untrackable-place-error :place place :object object)))
+  
+  (:method ((object accessor-config-info) &key db)
+    (declare (ignore db))
+    (error 'untrackable-place-error :place (config-info-place object)
+				    :object object)))
