@@ -33,17 +33,31 @@
 		'defconfig::config-info)))
 
 (am:test test-setv
+  ;; (is (eql (setv *light-dark* 'dark :db *testing-db*) 'dark))
   (am:is (eql 'dark *light-dark*))
-  (am:signals defconfig::no-config-found-error
-    (setv *light-dark* 'light))
+  (let ((defconfig::*setv-permissiveness* :strict))
+    (am:signals defconfig::no-config-found-error
+      (setv *light-dark* 'light)))
   (am:is (eql (setv *light-dark* 'light
 		 :db *testing-db*)
 	   'light))
   (am:signals defconfig::invalid-datum-error
     (setv *light-dark* 'neither-light-nor-dark
 	  :db *testing-db*))
-  (signals defconfig:no-config-found-error
-    (setv *light-dark* 'dark)))
+  (is (eql *light-dark* 'light))
+  ;; why does (signals warning ...) not allow us to continue? i think we need
+  ;; another macro here specifically for warnings - signals expands into a
+  ;; handler-bind on the condition and returns from the block prematurely, which
+  ;; is fine and dandy if were dealing with errors, but the warning here is meant
+  ;; to warn the user but still process the setv, not abort early...
+  (signals warning
+    (let ((defconfig::*setv-permissiveness* :greedy))
+      (setv *light-dark* 'dark)))
+  (is (eql *light-dark* 'light))
+  (is (eql (let ((defconfig::*setv-permissiveness* :greedy))
+	     (setv *light-dark* 'dark))
+	   'dark))
+  (is (eql *light-dark* 'dark)))
 
 (am:test fine-grained-w-a-s-signal-setv-wrapped-error
   (defconfig *bounded-number* 0 :typespec '(integer 0 10)
@@ -123,10 +137,12 @@
 	   (equal *other-bounded-number* 2))))
 
 (am:test test-for-prev-value-with-atomic-setv
-  (defconfig *bounded-number* 0 :typespec '(integer 0 10)
+  (defconfig *bounded-number* 0
+    :typespec '(integer 0 10)
     :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
     :documentation "A number with the bounds 0 to 10 inclusive"
-    :tags '("bounded number" "integer") :db *testing-db*
+    :tags '("bounded number" "integer")
+    :db *testing-db*
     :reinitialize t :regen-config t)
   (signals defconfig:config-error
     (with-atomic-setv ()
@@ -171,3 +187,15 @@
     (setv *bounded-number* "20"
 	  :db *testing-db*))
   (is (= *bounded-number* 1)))
+
+(am:test test-accessor-validation
+  (defclass testing-class ()
+    ((slot1 :initarg :1 :accessor testing-class-slot-1)
+     (slot2 :initarg :2 :accessor testing-class-slot-2)))
+  (defparameter *testing-class* (make-instance 'testing-class :1 1 :2 2))
+  (defconfig (testing-class-slot-1) 1 :typespec '(integer -10 10)
+    :regen-config t)
+  (setv (testing-class-slot-1 *testing-class*) 2)
+  (is (= (testing-class-slot-1 *testing-class*) 2))
+  (signals defconfig:invalid-datum-error
+    (setv (testing-class-slot-1 *testing-class*) 20)))
