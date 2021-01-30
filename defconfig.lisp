@@ -13,8 +13,10 @@
   ((db :initarg :db :reader config-info-db
        :documentation "the database that the config info object is housed in.")
    (place :initarg :place :reader config-info-place
-          :documentation "The place which this config info governs.")
-   (default-value :initarg :default :reader config-info-default-value
+          :documentation "The place which this config info governs.")))
+
+(defclass config-info-values ()
+  ((default-value :initarg :default :reader config-info-default-value
                   :documentation "The default value of this config-info object")
    (prev-value :initarg :previous :accessor config-info-prev-value
 	       :reader config-info-previous-value
@@ -37,12 +39,20 @@
                  :documentation "An explanation of the valid values and predicate function")))
 
 (defclass config-info (config-info-metadata config-info-functions
-                       config-info-direct-info)
+                       config-info-direct-info config-info-values)
+  ())
+
+(defclass accessor-config-info (config-info-metadata config-info-functions
+				config-info-direct-info)
   ())
 
 (defmethod print-object ((object config-info) stream)
   (print-unreadable-object (object stream)
     (format stream "CONFIG-INFO ~A" (config-info-place object))))
+
+(defmethod print-object ((object accessor-config-info) stream)
+  (print-unreadable-object (object stream)
+    (format stream "ACCESSOR-CONFIG-INFO ~A" (config-info-place object))))
 
 ;;; turn valid-values into a string, unless a custom string is provided. this should be moved into the generation fn
 (defmethod initialize-instance :after ((obj config-info) &key)
@@ -99,7 +109,9 @@ should be used."))
 
 (define-condition invalid-datum-error (config-error)
   ((place-form :initarg :place :reader invalid-datum-error-place :initform nil)
-   (value :initarg :value :reader invalid-datum-error-value :initform nil))
+   (value :initarg :value :reader invalid-datum-error-value :initform nil)
+   (config-object :initarg :config-object :initform nil
+		  :reader invalid-datum-error-config-object))
   (:report
    (lambda (c s)
      (with-slots (place-form value) c
@@ -113,7 +125,7 @@ should be used."))
   (:report
    (lambda (c s)
      (with-slots (place-form value coerced-value) c
-       (format s "The value ~S is invalid for place ~S, and coercion produced the value ~S, which is also invalid"
+       (format s "The value ~S is invalid for place ~S.~%Coercion produced the value ~S, which is also invalid"
                value place-form coerced-value))))
   (:documentation
    "This condition indicates that coercion was attempted on VALUE, producing COERCED-VALUE, and that COERCED-VALUE is invalid for PLACE-FORM"))
@@ -137,6 +149,32 @@ should be used."))
              (database-already-exists-error-key condition))))
   (:documentation
    "This condition indicates KEY already denotes a database in *db-plist*"))
+
+(define-condition untrackable-place-error (config-error)
+  ((object :initarg :object :reader untrackable-place-error-object)
+   (place :initarg :place :reader untrackable-place-error-place))
+  (:report
+   (lambda (condition stream)
+     (format stream "The place ~S does not track default or previous values"
+	     (untrackable-place-error-place condition)))))
+
+(define-condition no-bound-default-value-error (untrackable-place-error) ()
+  (:report
+   (lambda (condition stream)
+     (format stream
+	     "No default value bound when trying to reset ~S"
+	     (untrackable-place-error-place condition))))
+  (:documentation
+   "This condition indicates that the default-value slot of OBJECT is unbound. 
+This will only be signalled when trying to reset a place to its default value."))
+
+(define-condition not-resettable-place-error (untrackable-place-error) ()
+  (:report
+   (lambda (condition stream)
+     (format stream "Place ~S is an accessor and is not resettable"
+	     (untrackable-place-error-place condition))))
+  (:documentation
+   "This condition indicates that a reset was attempted on an accessor place."))
 
 ;;; database
 
@@ -229,12 +267,43 @@ the def(parameter|var) form."
 (define-defconfig-db *default-db* :default
   :doc "The default database for defconfig")
 
-;;; actual defconfig workers and macros. 
+;;; actual defconfig workers and macros.
 
-(defun %defconfig (place default &key coercer reinitialize tags name
-                                   regen-config (db '*default-db*)
-                                   valid-values-list documentation
-                                   (predicate 'cl::identity predicate-provided-p))
+(defun %defconfig-accessor (place &key coercer tags name regen-config
+				    (db '*default-db*) valid-values-list
+				    documentation
+				    (predicate 'cl::identity predicate-provided-p))
+  (alexandria:with-gensyms (hash obj pred)
+    `(let* ((,pred ,@(if predicate-provided-p
+                         `(,predicate)
+                         `(',predicate)))
+	    (,hash (car ,db))
+	    (,obj (gethash ',(car place) ,hash)))
+       (if (or (not ,obj) (and ,obj ,regen-config))
+	   (setf (gethash ',(car place) ,hash)
+		 (make-instance 'accessor-config-info
+				:predicate ,pred
+				,@(when coercer
+				    `(:coercer ,coercer))
+				,@(when documentation
+				    `(:documentation ,documentation))
+				:name ,(if name
+					   name
+					   (format nil "config-info object for ~A"
+						   place))
+				,@(when tags
+				    `(:tags ,tags))
+				:place ',place
+				,@(when valid-values-list
+				    `(:valid-values ,valid-values-list))
+				:db ',db))
+	   ,obj))))
+
+(defun %defconfig-parameter (place default &key coercer reinitialize tags name
+					     regen-config (db '*default-db*)
+					     valid-values-list documentation
+					     (predicate 'cl::identity
+							predicate-provided-p))
   "The worker function for defconfig. This does the following
 1) validating the default value
 2) determining which hash table to place the generated object in
@@ -268,7 +337,7 @@ database"
                     `((defparameter ,place ,hold
                         ,@(when documentation (list documentation)))))
                    (t (if (listp place)
-                          `()
+                          `(nil)
                           `((defvar ,place ,hold
                               ,@(when documentation (list documentation)))))))
            (error 'invalid-datum-error :place ',place :value ,hold))
@@ -298,6 +367,57 @@ database"
 				    `(:valid-values ,valid-values-list))
 				:db ',db))
 	   ,obj))))
+
+(defmacro defaccessor-config (place &key validator typespec coercer documentation 
+				      tags name regen-config (db '*default-db*))
+  (cond
+    (typespec
+     `(%defconf-vv-intermediary ,place nil
+				:predicate
+				(lambda (x)
+				  ,(format nil "check if X is of type ~A" typespec)
+				  (typep x ,typespec))
+				:coercer ,coercer
+				:documentation ,documentation :tags ,tags
+				:regen-config ,regen-config :db ,db :name ,name
+				:valid-values-list ,typespec))
+    (validator
+     (%defconfig-accessor place :predicate validator
+				:coercer coercer
+				:regen-config regen-config
+				:name name
+				:tags tags
+				:db db
+				:documentation documentation))
+    (t 
+     (%defconfig-accessor place :coercer coercer
+				:regen-config regen-config
+				:name name
+				:tags tags
+				:db db
+				:documentation documentation))))
+
+(defun %defconfig (place default &key predicate coercer reinitialize 
+				      regen-config documentation tags name db
+				      valid-values-list)
+  (if (listp place)
+      (%defconfig-accessor place :predicate predicate
+				 :coercer coercer
+				 :regen-config regen-config
+				 :name name
+				 :tags tags
+				 :db db
+				 :valid-values-list valid-values-list
+				 :documentation documentation)
+      (%defconfig-parameter place default :predicate predicate
+					  :coercer coercer
+					  :reinitialize reinitialize
+					  :regen-config regen-config
+					  :name name
+					  :tags tags
+					  :db db
+					  :valid-values-list valid-values-list
+					  :documentation documentation)))
 
 (defmacro %defconf-vv-intermediary (place default &key predicate coercer name
                                                     reinitialize regen-config
@@ -362,12 +482,7 @@ TAGS are strings that can be used to search for a config-info object. The search
 functionality is currently only partially implemented. "
   (when (and validator typespec)
     (error "A validator and typespec keyargs cannot both be provided to defconfig"))
-  (cond (validator
-         (%defconfig place default-value :predicate validator :coercer coercer
-                                         :reinitialize reinitialize :db db
-                                         :documentation documentation :name name
-                                         :tags tags :regen-config regen-config))
-        (typespec
+  (cond (typespec
          `(%defconf-vv-intermediary ,place ,default-value
                                     :predicate (lambda (x)
                                                  ,(format nil "check if X is of type ~A" typespec)
@@ -376,6 +491,12 @@ functionality is currently only partially implemented. "
                                     :documentation ,documentation :tags ,tags
                                     :regen-config ,regen-config :db ,db :name ,name
                                     :valid-values-list ,typespec))
+	(validator
+         (%defconfig place default-value :predicate validator :coercer coercer
+                                         :reinitialize reinitialize :db db
+                                         :documentation documentation :name name
+                                         :tags tags :regen-config regen-config))
+        
         (t
          (%defconfig place default-value
                      :coercer coercer :reinitialize reinitialize :db db
