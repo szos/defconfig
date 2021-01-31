@@ -118,9 +118,7 @@
      - /db/ - the database to place /config-info/ into. 
 ** Setv
    The ~setv~ macro expands into multiple calls to ~%setv~, which validates a value before setting the place to it. It functions the same as ~setf~, but accepts the keyword ~:db~ to specify a database other than the default one provided by ~defconfig~. 
-** Setv-atomic
-   The ~setv-atomic~ macro functions the same as ~setv~, but if any errors are encountered all places are reset to their original value. 
-** With-atomic-setv
+** With-atomic-setv<
    The ~with-atomic-setv~ macro resets any places set using ~setv~ to the value it held before the call to ~with-atomic-setv~, when a condition is encountered. One can specify whether to re-signal the condition or not with ~:re-error~. If ~:re-error~ is nil a warning will be issued on encountering a handled condition and the condition will be returned. One can specify which conditions to handle with ~:handle-conditions~, which accepts an (unquoted) type specifier. One cannot handle no conditions (that defeats the purpose of ~with-atomic-setv~). 
    
    An example: 
