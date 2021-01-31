@@ -5,11 +5,13 @@
   
   Defconfig is still in its infancy; symbols will be changed, other symbols will be exported, and functionality may change. For this reason, do not ~:use~ defconfig. Instead ~:import~ the symbols you want to use - namely ~#:defconfig~, ~#:setv~, ~#:with-atomic-setv~, ~#:define-defconfig-db~, ~#:get-db~, and ~#:*setv-permissiveness*~. 
 
+  If you encounter something that doesnt work as you think it should, please open an issue here. If you describe the exhibited behavior and the expected behavior, it will be added to the test suite and fixed (hopefully quickly). 
+
 * Usage
   The basic usage of this system is through the macros ~defconfig~, ~setv~ and ~with-atomic-setv~. The macro ~defconfig~ defines a configuration object which is used to check values against a predicate. The macro ~setv~ uses these configuration objects to validate values before calling setf. An error is signalled if A) the value is invalid, B) the coerced value is invalid (when applicable) or C) the place one is trying to set doesnt have a configuration object. For A and B, restarts are put into place to ignore the invalidity and set regardless. The macro ~with-atomic-setv~ collects all places set with ~setv~ in its body and if an error is signalled resets all changed values back to their original value before the ~with-atomic-setv~ form. 
 
 * Regarding This Readme
-  This readme is not a complete explanation of defconfig. Please see =package.lisp= for a list of exported symbols and see the symbol docstrings for a better idea of what the function/macro/generic/error/etc does. Most (exported) functions/macros are well documented, accessors have decent slot documentation describing their purpose/use, and errors should be grokkable from their ~:report~ functions.
+  This readme is not a complete explanation of defconfig. Please see =package.lisp= for a list of exported symbols and see the symbol docstrings for a better idea of what the function/macro/generic/error/etc does. Most (exported) symbols are well documented, slots have decent documentation describing their purpose/use, and errors should be grokkable from their ~:report~ functions.
 
 * Basic Tutorial
   Lets look at an example where one is defining a user-exposed variable for the background color of an application. We will define a configuration object which checks that the value is indeed a color, and a coercer that tries to parse invalid values into a color object. finally we will use ~setv~ and ~with-atomic-setv~ to modify this value. 
