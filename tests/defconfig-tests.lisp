@@ -204,7 +204,7 @@
   (deftype non-positive-integer ()
     '(integer * 0))
 
-  (defaccessor-config (testing-class-slot-2)
+  (defconfig-accessor (testing-class-slot-2)
     :typespec 'non-positive-integer
     :coercer (lambda (x)
 	       (if (numberp x)

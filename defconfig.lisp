@@ -449,7 +449,7 @@ functionality is currently only partially implemented. "
                      :documentation documentation :tags tags
                      :regen-config regen-config :name name))))
 
-(defmacro defaccessor-config (place &key validator typespec coercer documentation 
+(defmacro defconfig-accessor (place &key validator typespec coercer documentation 
 				      tags name regen-config (db '*default-db*))
   "A version of defconfig for use explicitly with defining accessors. arguments are
 as in defconfig."
