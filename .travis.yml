@@ -25,6 +25,7 @@ install:
 script:
   - cl -e '(ql:quickload :defconfig)
            (ql:quickload :defconfig.test)'
+       -e '(in-package :common-lisp-user)'
        -e '(setf *debugger-hook*
                  (function (lambda (mysym h)
                              (declare (ignore mysym h))
