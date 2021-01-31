@@ -140,6 +140,8 @@
      - Any side effects of evaluating a value. All values are evaluated sequentially. If a value is not valid, no further values will be processed.
      - Causes /place/ to be set to /value/ 
 ** With-atomic-setv
+   NB: ~with-atomic-setv~ does not currently work with accessor places. 
+
    The ~with-atomic-setv~ macro resets any places set using ~setv~ to the value it held before the call to ~with-atomic-setv~, when a condition is encountered. One can specify whether to re-signal the condition or not with ~:re-error~. If ~:re-error~ is nil a warning will be issued on encountering a handled condition and the condition will be returned. One can specify which conditions to handle with ~:handle-conditions~, which accepts an (unquoted) type specifier. One cannot handle no conditions (that defeats the purpose of ~with-atomic-setv~). 
    
    An example: 

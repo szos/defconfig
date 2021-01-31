@@ -235,3 +235,17 @@
   (signals defconfig:invalid-datum-error
     (setv (testing-class-slot-2 *testing-class*) "hi"))
   (is (= (setv (testing-class-slot-2 *testing-class*) 8) -8)))
+
+(am:test test-with-atomic-setv-on-accessors
+  (defparameter *testing-class* (make-instance 'testing-class :1 0 :2 0))
+  (defconfig-accessor (testing-class-slot-1) 
+    :typespec '(integer -10 10)
+    :regen-config t)
+  (with-atomic-setv ()
+    (setv (testing-class-slot-1 *testing-class*) 4))
+  (is (= (testing-class-slot-1 *testing-class*) 4))
+  (signals error
+    (with-atomic-setv ()
+      (setv (testing-class-slot-1 *testing-class*) 8)
+      (error "foo")))
+  (is (= (testing-class-slot-1 *testing-class*) 4)))
