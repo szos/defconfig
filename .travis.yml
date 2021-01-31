@@ -7,7 +7,6 @@ env:
     - LISP=ccl
     - LISP=abcl
     - LISP=ecl
-    - LISP=allegro
 
 # either use a local install.sh script or install it via curl. Feel
 # free to simplify this section in your own .travis.yml file.
