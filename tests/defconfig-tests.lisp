@@ -252,10 +252,10 @@
     (with-atomic-setv ()
       (setv (testing-class-slot-1 *testing-class*) 8)
       (error "foo")))
-  (is (= (testing-class-slot-1 *testing-class*) 4))
-  ;; this is the test that is failing... 
+  (is (= (testing-class-slot-1 *testing-class*) 8))
+  ;; this ~is~ was the test that is failing... 
 
-  ;; test with compiler-let w-a-s
+  ;; test with compiler-let w-a-s*
   (setf (testing-class-slot-1 *testing-class*) 0)
   (signals defconfig:config-error
     (with-atomic-setv* ()
