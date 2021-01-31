@@ -288,8 +288,7 @@ once within BODY."
        (push (list ',place ,place)
 	     with-atomic-setv-accumulator)
        (handler-case (%%setv ,place ,value ,db)
-	 (,reset-errors ;; (or ,@reset-errors)
-	   (,c)
+	 (,reset-errors (,c) ;; (or ,@reset-errors) (,c)
 	   (%runtime-atomic-setv-reset :pop t)
 	   (return-from ,block-name ,c))))))
 
@@ -321,37 +320,42 @@ once within BODY."
 
 (defmacro with-runtime-atomic-setv ((&key (re-error t) handle-conditions)
 				    &body body)
-  (alexandria:with-gensyms (block-name args c inner-c)
-    `(let ((,c (block ,block-name
-		 (let ((with-atomic-setv-accumulator nil))
-		   (macrolet ((setv (&rest ,args)
-				`(%runtime-atomic-setv ,',block-name
-						       ,',handle-conditions
-						       ,@,args)))
-		     (handler-case (progn ,@body)
-		       (,handle-conditions (,inner-c)
-			 (%runtime-atomic-setv-reset)
-			 (return-from ,block-name ,inner-c))))))))
-       (if (and ,re-error (typep ,c ',handle-conditions))
-	   (error 'setv-wrapped-error :error ,c)
-	   (progn
-	     (typecase ,c
-	       (error
-		(warn "WITH-ATOMIC-SETV encountered the error~%~S~%and reset."
-		      ,c))
-	       (warning
-		(warn ,c)))
-	     ,c)))))
+  (alexandria:with-gensyms (block-name args c inner-c outer-block)
+    `(block ,outer-block
+       (let ((,c (block ,block-name
+		   (let ((with-atomic-setv-accumulator nil))
+		     (macrolet ((setv (&rest ,args)
+				  `(%runtime-atomic-setv ,',block-name
+							 ,',handle-conditions
+							 ,@,args)))
+		       (handler-case
+			   (restart-case (progn ,@body)
+			     (abort-and-reset ()
+			       :report "Exit WITH-ATOMIC-SETV and reset everything"
+			       (%runtime-atomic-setv-reset)
+			       (return-from ,outer-block nil)))
+			 (,handle-conditions (,inner-c)
+			   (%runtime-atomic-setv-reset)
+			   (return-from ,block-name ,inner-c))))))))
+	 (if (and ,re-error (typep ,c ',handle-conditions))
+	     (error 'setv-wrapped-error :error ,c)
+	     (progn
+	       (typecase ,c
+		 (error
+		  (warn "WITH-ATOMIC-SETV encountered the error~%~S~%and reset."
+			,c))
+		 (warning
+		  (warn ,c)))
+	       ,c))))))
 
 (defmacro with-atomic-setv ((&key (re-error t) handle-conditions)
 			    &body body)
-  "This macro causes every call to setv to, on an invalid value, reset the place
-in question to its previous value, as well as any previously encountered places.
-When supplied, HANDLE-ERRORS should be an unquoted list of errors to handle. In 
-this context, handling an error means catching it, resetting all values changed
-via setv, and if RE-ERROR is t, signal an error of type setv-wrapped-error. Any 
-error types not present in HANDLE-ERRORS will not cause a reset and will not 
-be caught - they will propogate up out of with-atomic-setv."
+  "This macro, upon encountering an error, resets all places encountered within 
+calls to setv to be reset to the value they held before the call to 
+with-atomic-setv. Which errors to reset upon can be controlled with 
+HANDLE-CONDITIONS. If it is nil, it defaults to 'error. If a handled condition is 
+encountered, it will be wrapped in SETV-WRAPPED-ERROR, unless RE-ERROR is nil, in 
+which case a warning will be generated and the condition will be returned. "
   `(with-runtime-atomic-setv (:re-error ,re-error
 			      :handle-conditions ,(or handle-conditions 'error))
      ,@body))
