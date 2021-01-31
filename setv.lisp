@@ -353,12 +353,3 @@ be caught - they will propogate up out of with-atomic-setv."
   `(with-runtime-atomic-setv (:re-error ,re-error
 			      :handle-conditions ,(or handle-conditions 'error))
      ,@body))
-
-(defmacro with-a-s-test-args ((&key handle-conditions)
-			      &body body)
-  `(handler-case (progn ,@body)
-     (,(or handle-conditions 'error) ()
-       (format t "handled condition ~S" ',(or handle-conditions 'error)))))
-
-(with-atomic-setv () ; (:handle-conditions (or error warning))
-  "hi!")
