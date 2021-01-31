@@ -258,11 +258,11 @@ passing KEY to the function get-db. If PARAMETER is true, create this var with
 a defparameter form, otherwise use defvar. DOC is the documentation to pass to 
 the def(parameter|var) form."
   (alexandria:with-gensyms (realkey)
-    `(locally (declare (special ,var))
-       (let ((,realkey (def-defconfig-db-error-check ,key ',var)))
-	 (declare (ignorable ,realkey))
-	 (,(if parameter 'defparameter 'defvar) ,var (make-config-database) ,doc)
-	 (add-db-to-plist ,realkey ',var)))))
+    `(let ((,realkey (def-defconfig-db-error-check ,key ',var)))
+       (declare (special ,var)
+		(ignorable ,realkey))
+       (,(if parameter 'defparameter 'defvar) ,var (make-config-database) ,doc)
+       (add-db-to-plist ,realkey ',var))))
 
 (define-defconfig-db *default-db* :default
   :doc "The default database for defconfig")
