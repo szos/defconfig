@@ -93,7 +93,7 @@ regardless."
       (use-value (provided)
 	:test (lambda (c) (typep c 'invalid-datum-error))
 	:report (lambda (s)
-		  (format s "Supply a new value for ~A" real-place))
+		  (format s "Supply a new value for ~S" real-place))
 	:interactive (lambda ()
 		       (format *query-io* "Enter Value:  ")
 		       (force-output *query-io*)
@@ -102,7 +102,7 @@ regardless."
       (use-validated-value (provided)
 	:test (lambda (c) (typep c 'invalid-datum-error))
 	:report (lambda (s)
-		  (format s "Supply a new value to be validated for ~A"
+		  (format s "Supply a new value to be validated for ~S"
 			  real-place))
 	:interactive (lambda ()
 		       (format *query-io* "Enter Value:  ")
@@ -112,7 +112,7 @@ regardless."
 				errorp real-place))
       (set-regardless ()
 	:test (lambda (c) (typep c 'invalid-datum-error))
-	:report (lambda (s) (format s "Regardless of validity, set ~A to ~A"
+	:report (lambda (s) (format s "Regardless of validity, set ~S to ~S"
 				    real-place value))
 	(return-from %fsetv-ensure-validity value)))))
 
