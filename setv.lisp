@@ -1,5 +1,15 @@
 (in-package :defconfig)
 
+(defconfig *setv-permissiveness* :strict
+  :typespec '(member :strict :greedy :permissive :greedy+permissive)
+  :tags '("setv" "permissiveness" "allow other values")
+  :documentation "Determines how setv will act when no config-info object is found.
+:strict means to error out. :greedy means to search through all registered 
+databases for a config-info object and use the first one that is found, or if none
+is found error out. :permissive means to setf when a config-info object isnt found.
+:greedy+permissive means to search through all registered databases and use the 
+first object found, but if one isnt found to setf regardless.")
+
 (define-condition setv-wrapped-error (config-error)
   ((condition :initarg :error :accessor setv-wrapped-error-condition))
   (:report
@@ -51,69 +61,128 @@ variable via destructuring-bind."
 	   ,key-hold
 	 ,@body))))
 
-(defmacro %setv-coerced (validity config-info-object place original-value
-			 coerced-value)
-  "Helper macro for setv which handles coerced data"
-  `(restart-case
-       (if ,validity
-	   (progn (psetf (config-info-prev-value ,config-info-object) ,place
-			 ,place ,coerced-value)
-		  ,coerced-value)
-	   (error 'invalid-coerced-datum-error :place ',place
-					       :value ,original-value
-					       :coerced-value ,coerced-value))
-     (set-place-to-coerced-value ()
-       :report (lambda (stream)
-		 (format stream "Set ~S to ~S" ',place ,coerced-value))
-       (psetf (config-info-prev-value ,config-info-object) ,place
-	      ,place ,coerced-value)
-       ,coerced-value)))
+(defmacro %setv-ensure-setf (place value config-info-object)
+  `(progn ,(if (listp place)
+	       `(setf ,place ,value)
+	       `(psetf ,place ,value
+		       (config-info-prev-value ,config-info-object) ,place))
+	  ,value))
 
-(defmacro %setv-original (validity config-info-object place value)
-  "Helper macro for setv which handles regular datum."
-  (alexandria:with-gensyms (coer-hold coer-valid?)
-    `(restart-case
-	 (cond (,validity
-		(psetf (config-info-prev-value ,config-info-object) ,place
-		       ,place ,value)
-		,value)
-	       ((config-info-coercer ,config-info-object)
-		(let* ((,coer-hold
-			 (funcall (config-info-coercer ,config-info-object)
-				  ,value))
-		       (,coer-valid?
-			 (funcall (config-info-predicate ,config-info-object)
-				  ,coer-hold)))
-		  (%setv-coerced ,coer-valid? ,config-info-object
-				 ,place ,value ,coer-hold)))
-	       (t (error 'invalid-datum-error :place ',place :value ,value)))
-       (set-place-to-value ()
-	 :report (lambda (s)
-		   (format s "Set ~S to ~S" ',place ,value))
-	 (psetf (config-info-prev-value ,config-info-object) ,place
-		,place ,value)
-	 ,value))))
+(defun %fsetv-ensure-validity (config-info-object value invalid-symbol
+			       &optional errorp place error extra-args)
+  "check VALUE against CONFIG-INFO-OBJECTs predicate. return VALUE if it passes.
+If ERRORP is true error if VALUE doesnt pass. If ERRORP is nil and VALUE doesnt 
+pass, return INVALID-SYMBOL. Restarts are put in place to provide a value or set
+regardless."
+  (let ((real-place (or place (config-info-place config-info-object))))
+    (restart-case 
+	(let ((valid? (funcall (config-info-predicate config-info-object)
+			       value)))
+	  (cond (valid? value)
+		(errorp (if error
+			    (apply 'error error
+				   (append extra-args
+					   (list :config-object config-info-object
+						 :place real-place
+						 :value value)))
+			    (error 'invalid-datum-error
+				   :config-object config-info-object
+				   :place real-place
+				   :value value)))
+		(t invalid-symbol)))
+      (use-value (provided)
+	:test (lambda (c) (typep c 'invalid-datum-error))
+	:report (lambda (s)
+		  (format s "Supply a new value for ~S" real-place))
+	:interactive (lambda ()
+		       (format *query-io* "Enter Value:  ")
+		       (force-output *query-io*)
+		       (list (read *query-io*)))
+	(return-from %fsetv-ensure-validity provided))
+      (use-validated-value (provided)
+	:test (lambda (c) (typep c 'invalid-datum-error))
+	:report (lambda (s)
+		  (format s "Supply a new value to be validated for ~S"
+			  real-place))
+	:interactive (lambda ()
+		       (format *query-io* "Enter Value:  ")
+		       (force-output *query-io*)
+		       (list (read *query-io*)))
+	(%fsetv-ensure-validity config-info-object provided invalid-symbol
+				errorp real-place))
+      (set-regardless ()
+	:test (lambda (c) (typep c 'invalid-datum-error))
+	:report (lambda (s) (format s "Regardless of validity, set ~S to ~S"
+				    real-place value))
+	(return-from %fsetv-ensure-validity value)))))
 
-(defmacro %setv (place value db)
-  "Validates VALUE against the config-info object looked up in DB using PLACE. 
-VALUE will be evaluated first, then the config-info object will be looked up.
-After that the VALUE will be checked against the registered predicate. If VALUE
-is valid, PLACE is set to it, and the config info object will update its 
-previous value slot. otherwise coercion is attempted and, if successful, PLACE
-gets set to the coerced value. Restarts are put into place to override an 
-invalid value."
-  (alexandria:with-gensyms (hold hash config-info-object valid?)
-    `(let* ((,hold ,value)
-	    (,hash ,(if (listp place) `(car ,db) `(cdr ,db)))
-	    (,config-info-object
-	      ,(if (listp place)
-		   `(or (gethash ',place ,hash)
-			(gethash ',(car place) ,hash)
-			(error 'no-config-found-error :place ',place :db ',db))
-		   `(or (gethash ',place ,hash)
-			(error 'no-config-found-error :place ',place :db ',db))))
-	    (,valid? (funcall (config-info-predicate ,config-info-object) ,hold)))
-       (%setv-original ,valid? ,config-info-object ,place ,hold))))
+(defmacro %%setv-coerced (place value config-object coercer)
+  (alexandria:with-gensyms (coer-hold validated-value invalid-sym)
+    `(if ,coercer 
+	 (let* ((,coer-hold (funcall ,coercer ,value))
+		(,validated-value
+		  (%fsetv-ensure-validity ,config-object ,coer-hold ',invalid-sym
+					  t ',place 'invalid-coerced-datum-error
+					  (list :coerced-value ,coer-hold))))
+	   ;; we dont need to check ,validated-values here as we will ALWAYS error
+	   ;; if we get a invalid coerced data. 
+	   (%setv-ensure-setf ,place ,validated-value ,config-object))
+	 (case *setv-permissiveness*
+	   ((:permissive :greedy+permissive)
+	    (%setv-ensure-setf ,place ,value ,config-object))
+	   (otherwise
+	    (error 'invalid-datum-error :config-object ,config-object
+					:place ',place
+					:value ,value))))))
+
+(defun %fsetv-get-config-info-object (place hash db &optional setf-symbol)
+  "return setf symbol if we want the caller to setf place. setf-symbol only needs
+to be provided if were calling this in a setv expansion."
+  (handler-case 
+      (or (gethash (if (listp place)
+		       (car place)
+		       place)
+		   hash)
+	  (error 'no-config-found-error :place place :db db))
+    (no-config-found-error (c)
+      (case *setv-permissiveness*
+	(:strict (error c))
+	(:permissive (return-from %fsetv-get-config-info-object setf-symbol))
+	((:greedy :greedy+permissive)
+	 (let* ((config-obj
+		  (loop for (key db) on *db-plist* by 'cddr
+			for obj = (place->config-info place :db (cdr db))
+			when obj return (cons obj db))))
+	   (cond (config-obj
+		  (warn "*SETV-PERMISSIVENESS* is ~S, using configuration object from database ~S rather than ~S" *setv-permissiveness* (cadr config-obj) db)
+		  (return-from %fsetv-get-config-info-object (car config-obj)))
+		 ((eql *setv-permissiveness* :greedy+permissive)
+		  (return-from %fsetv-get-config-info-object setf-symbol))
+		 (t (error 'no-config-found-error
+			   :place place :db 'all-registered-databases)))))))))
+
+(defmacro %%setv (place value db)
+  (alexandria:with-gensyms (hold hash config-info-object invalid-sym
+				 validated-value coer setf?-sym)
+    `(let ((,hold ,value))
+       (let* ((,hash ,(if (listp place) `(car ,db) `(cdr ,db)))
+	      (,config-info-object
+		(let ((obj (%fsetv-get-config-info-object ',place ,hash ',db
+							  ',setf?-sym)))
+		  (if (eql obj ',setf?-sym)
+		      (setf ,place ,hold)
+		      obj)))
+	      (,coer (config-info-coercer ,config-info-object))
+	      (,validated-value
+		;; get a validated value - we use this instead of hold because
+		;; if there is a coercer for the place we will return invalid-sym
+		;; when ,hold is invalid, and if not we will error out with
+		;; restarts in place to provide a value or set regardless
+		(%fsetv-ensure-validity ,config-info-object ,hold ',invalid-sym
+					(not ,coer) ',place)))
+	 (if (eql ,validated-value ',invalid-sym)
+	     (%%setv-coerced ,place ,hold ,config-info-object ,coer)
+	     (%setv-ensure-setf ,place ,validated-value ,config-info-object))))))
 
 (defmacro setv (&rest args)
   "Setv must get an even number of ARGS - every place must have a value. Setv
@@ -121,7 +190,7 @@ can also take the key argument :db, to specify which database to look up config
 objects in. "
   (destructuring-keys (pairs (:db '*default-db*)) args
     `(progn ,@(loop for (p v) on pairs by 'cddr
-		    collect `(%setv ,p ,v ,db)))))
+		    collect `(%%setv ,p ,v ,db)))))
 
 (defmacro setv-atomic (&rest args)
   "this version of setv saves the original value of the places being set, and 
@@ -135,7 +204,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 		     collect `(,gensym ,place))
 	   (handler-case
 	       (progn ,@(loop for (place value) on pairs by 'cddr
-			      collect `(%setv ,place ,value
+			      collect `(%%setv ,place ,value
 					      ,@(if db
 						    (cdr db)
 						    '(*default-db*)))))
@@ -164,7 +233,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
   (declare (special *setv-place-accumulator*))
   (push (list db place) *setv-place-accumulator*)
   (alexandria:with-gensyms (c)
-    `(handler-case (%setv ,place ,value ,db)
+    `(handler-case (%%setv ,place ,value ,db)
        ((or ,@reset-on) (,c)
 	 (%atomic-setv-reset)
 	 (return-from ,block-name ,c)))))
@@ -216,7 +285,7 @@ once within BODY."
     `(progn
        (push (list ',place ,place)
 	     with-atomic-setv-accumulator)
-       (handler-case (%setv ,place ,value ,db)
+       (handler-case (%%setv ,place ,value ,db)
 	 ((or ,@reset-errors) (,c)
 	   (%runtime-atomic-setv-reset :pop t)
 	   (return-from ,block-name ,c))))))
