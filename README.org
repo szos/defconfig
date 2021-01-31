@@ -119,9 +119,39 @@
 ** Setv-atomic
    The ~setv-atomic~ macro functions the same as ~setv~, but if any errors are encountered all places are reset to their original value. 
 ** With-atomic-setv
-   The ~with-atomic-setv~ macro resets any places set using ~setv~ to the value it held before the call to ~with-atomic-setv~, when a condition is encountered. One can specify whether to re-signal the condition or not with ~:re-error~. If ~:re-error~ is nil a warning will be issued on encountering a handled condition and the condition will be returned. One can specify which conditions to handle with ~:handle-errors~, which defaults to all errors. One can specify which conditions to explicitly NOT handle by wrapping it in a not statement. for example: ~(with-atomic-setv (:handle-errors (my-err (not my-other-err))) ...)~ will trigger a reset if a condition of type ~my-err~ is encountered, or any other condition that isnt ~my-other-err~. 
+   The ~with-atomic-setv~ macro resets any places set using ~setv~ to the value it held before the call to ~with-atomic-setv~, when a condition is encountered. One can specify whether to re-signal the condition or not with ~:re-error~. If ~:re-error~ is nil a warning will be issued on encountering a handled condition and the condition will be returned. One can specify which conditions to handle with ~:handle-conditions~, which accepts an (unquoted) type specifier. One cannot handle no conditions (that defeats the purpose of ~with-atomic-setv~). 
+   
+   An example: 
+#+BEGIN_SRC lisp
+  (with-atomic-setv (:re-error nil)
+    (error "hello")
+    "return string")
 
-Unless ~:re-error~ is nil, ~setv-wrapped-error~ is signalled with the ~condition~ slot holding our original error. If no condition is signalled the final form of ~body~ is returned. 
+  WARNING: WITH-ATOMIC-SETV encountered the error
+  #<SIMPLE-ERROR "hello" {address}>
+  and reset.
+  => #<SIMPLE-ERROR "hello" {address}>
+
+  (with-atomic-setv (:re-error nil :handle-conditions config-error)
+    (error "hello")
+    "return string")
+
+  drops into the *debugger-hook*
+
+  (with-atomic-setv (:re-error nil)
+    (warn "hello")
+    "return string")
+
+  WARNING: hello
+  => "return string"
+
+  (with-atomic-setv (:re-error nil :handle-conditions (or error warning))
+    (warn "hello")
+    "return string")
+
+  WARNING: hello
+  => #<SIMPLE-WARNING "hello" {address}>
+#+END_SRC
 ** Reset-place 
    The ~reset-place~ macro resets the place to the default value provided by the corresponding config-info object found within the database. If no object is found ~no-config-found-error~ is signalled.
 
