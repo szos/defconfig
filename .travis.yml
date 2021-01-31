@@ -7,7 +7,7 @@ env:
     - LISP=ccl
     - LISP=abcl
     - LISP=ecl
-    - LISP=clisp
+    - LISP=allegro
 
 # either use a local install.sh script or install it via curl. Feel
 # free to simplify this section in your own .travis.yml file.
@@ -27,8 +27,8 @@ script:
   - cl -e '(ql:quickload :defconfig)
            (ql:quickload :defconfig.test)'
        -e '(setf *debugger-hook*
-                 #'(lambda (con h)
-                     (declare (ignore con h))
+                 #'(lambda (mysym h)
+                     (declare (ignore mysym h))
                      (uiop:quit -1)))'
        -e '(unless (fiveam:run!)
                (uiop:quit 1))'
