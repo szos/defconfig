@@ -30,8 +30,6 @@ script:
                  (lambda (c h)
                    (declare (ignore c h))
                    (uiop:quit -1)))'
-       -e '(multiple-value-bind (a b c)
-               (fiveam:run!)
-             (unless a
-               (uiop:quit 1)))'
+       -e '(unless (fiveam:run!)
+               (uiop:quit 1))'
     [ $? -eq 1 ]
