@@ -105,7 +105,7 @@
 
 * A Note About Reset-Place
   The macro ~reset-place~ (and by extension the function ~reset-computed-place~) could be a little confusing. It takes a place, and resets it to its default value. However if ~previous-value~ is true, then it resets to the previous value instead. Before setting, it checks if the current value is eql to the value to reset to (this can be controlled with ~already-reset-test~) and if it is it isnt reset as it would have no effect. If it isnt, we both reset the place, AND set the ~previous-value~ slot to the (now no longer) current value. thusly, if the default value is a, previous value is b, and current value is c, and we reset to the default value, we will have a default of a, previous of c, and current of a. If we had instead reset to the previous value, we effectively swap the previous and current values. 
-  Furthermore, we cannot reset any accessor places at the moment
+  Furthermore, we cannot reset accessor places.
 
 * Macros
 ** Defconfig
@@ -147,7 +147,7 @@
     (error "hello")
     "return string")
 
-  drops into the *debugger-hook*
+  drops into the debugger
 
   (with-atomic-setv (:re-error nil)
     (warn "hello")
@@ -163,18 +163,4 @@
   WARNING: hello
   => #<SIMPLE-WARNING "hello" {address}>
 #+END_SRC
-** Reset-place 
-   The ~reset-place~ macro resets the place to the default value provided by the corresponding config-info object found within the database. If no object is found ~no-config-found-error~ is signalled.
 
-* Functions
-** make-config-database 
-   This function takes no arguments and returns a config database. 
-** config-info-search 
-   This function takes a /term/ to search for, and key arguments for the database and the namespace to search within. /Term/ can be a string, a list of strings, or a symbol/accessor. /Namespace/ is only used when /term/ is a string or list of strings. /Db/ specifies the database to look things up in. 
-* Errors
-** Invalid-datum-error  
-   This error is signalled if one tries to set a place to an invalid value. 
-** invalid-coerced-datum-error
-   This error is signalled instead of ~invalid-datum-error~ when a place has a coercer registered for it. It inherits from ~invalid-datum-error~. 
-** no-config-found-error
-   This error is signalled if a place has no config registered for it. 
