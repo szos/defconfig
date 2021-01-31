@@ -3,7 +3,7 @@
 
 (defpackage #:defconfig.test
   (:use #:cl)
-  (:local-nicknames (#:am #:fiveam))
+  ;; (:local-nicknames (#:am #:fiveam))
   (:import-from #:defconfig #:defconfig #:setv #:with-atomic-setv #:setv-atomic
 		#:make-config-database #:reset-place #:with-atomic-setv*
 		#:define-defconfig-db #:get-db #:delete-db #:*setv-permissiveness*
@@ -12,17 +12,17 @@
 
 (in-package :defconfig.test)
 
-;; (am:def-suite defconfig-testing-suite
+;; (fiveam:def-suite defconfig-testing-suite
 ;;   :description "a testing suite for defconfig")
 
-;; (am:in-suite defconfig-testing-suite)
+;; (fiveam:in-suite defconfig-testing-suite)
 
-;; (am:test clean
-;;   (am:is (or (and (boundp '*testing-db*)
+;; (fiveam:test clean
+;;   (fiveam:is (or (and (boundp '*testing-db*)
 ;; 		  (get-db :testing)
 ;; 		  (delete-db :testing t))
 ;; 	     t))
-;;   (am:is (eql (setv *setv-permissiveness* :strict) :strict)))
+;;   (fiveam:is (eql (setv *setv-permissiveness* :strict) :strict)))
 
 ;; (define-defconfig-db *testing-db* :testing)
 
@@ -79,26 +79,26 @@
 
 (defparameter *testing-class* (make-instance 'testing-class :1 0 :2 0))
 
-(am:test makedb
-  (am:is (consp *testing-db*))
-  (am:is (hash-table-p (car *testing-db*)))
-  (am:is (hash-table-p (cdr *testing-db*)))
-  (am:is (eq (get-db :testing) *testing-db*)))
+(fiveam:test makedb
+  (fiveam:is (consp *testing-db*))
+  (fiveam:is (hash-table-p (car *testing-db*)))
+  (fiveam:is (hash-table-p (cdr *testing-db*)))
+  (fiveam:is (eq (get-db :testing) *testing-db*)))
 
-(am:test test-defconfig
-  (am:is (eql 'dark *light-dark*))
-  (am:is (typep (defconfig::place->config-info '*light-dark* :db *testing-db*)
+(fiveam:test test-defconfig
+  (fiveam:is (eql 'dark *light-dark*))
+  (fiveam:is (typep (defconfig::place->config-info '*light-dark* :db *testing-db*)
 		'defconfig::config-info)))
 
-(am:test test-setv
-  (am:is (eql 'dark *light-dark*))
+(fiveam:test test-setv
+  (fiveam:is (eql 'dark *light-dark*))
   (let ((defconfig::*setv-permissiveness* :strict))
-    (am:signals defconfig::no-config-found-error
+    (fiveam:signals defconfig::no-config-found-error
       (setv *light-dark* 'light)))
-  (am:is (eql (setv *light-dark* 'light
+  (fiveam:is (eql (setv *light-dark* 'light
 		 :db *testing-db*)
 	   'light))
-  (am:signals defconfig::invalid-datum-error
+  (fiveam:signals defconfig::invalid-datum-error
     (setv *light-dark* 'neither-light-nor-dark
 	  :db *testing-db*))
   (is (eql *light-dark* 'light))
@@ -124,7 +124,7 @@
       (setv *light-dark* "invalid value")))
   (is (eql *light-dark* 'dark)))
 
-(am:test fine-grained-w-a-s-signal-setv-wrapped-error
+(fiveam:test fine-grained-w-a-s-signal-setv-wrapped-error
   (unless (= *bounded-number* 0)
     (setv *bounded-number* 0
 	  :db *testing-db*))
@@ -142,7 +142,7 @@
       (error "testing-error")))
   (is (= *bounded-number* 0)))
 
-(am:test fine-grained-w-a-s-invalid-datum-error
+(fiveam:test fine-grained-w-a-s-invalid-datum-error
   (setv *bounded-number* 0
 	:db *testing-db*)
   (is (= *bounded-number* 0))
@@ -161,7 +161,7 @@
 	(error (defconfig::setv-wrapped-error-condition c)))))
   (is (= *bounded-number* 0)))
 
-(am:test test-with-atomic-setv
+(fiveam:test test-with-atomic-setv
   (setv *bounded-number* 0 :db *testing-db*)
   (is (= *bounded-number* 0))
   (signals defconfig::setv-wrapped-error
@@ -196,7 +196,7 @@
       (defconfig::setv-wrapped-error (c)
 	(error (defconfig::setv-wrapped-error-condition c))))))
 
-(am:test test-w-a-s-specific-errors
+(fiveam:test test-w-a-s-specific-errors
   (with-atomic-setv (:handle-conditions defconfig::config-error)
     (setv *other-bounded-number* 1
 	  *bounded-number* 1
@@ -228,7 +228,7 @@
   (is (and (equal *bounded-number* 3)
 	   (equal *other-bounded-number* 3))))
 
-(am:test test-for-prev-value-with-atomic-setv
+(fiveam:test test-for-prev-value-with-atomic-setv
   (setv *bounded-number* 0 :db *testing-db*)
   (signals defconfig:config-error
     (with-atomic-setv ()
@@ -288,7 +288,7 @@
 	    :db *testing-db*)))
   (is (= *bounded-number* 2)))
 
-(am:test test-setv-atomic
+(fiveam:test test-setv-atomic
   (is (eql (setv *light-dark* 'dark
 		 :db *testing-db*)
 	   'dark))
@@ -296,7 +296,7 @@
     (setv *light-dark* 'invalid
 	  :db *testing-db*)))
 
-(am:test test-coercion
+(fiveam:test test-coercion
   (is (= (setv *bounded-number* 0
 	       :db *testing-db*)
 	 0))
@@ -310,7 +310,7 @@
 	  :db *testing-db*))
   (is (= *bounded-number* 1)))
 
-(am:test test-accessor-validation
+(fiveam:test test-accessor-validation
   (setv (testing-class-slot-1 *testing-class*) 2)
   (is (= (testing-class-slot-1 *testing-class*) 2))
   (signals defconfig:invalid-datum-error
@@ -320,7 +320,7 @@
     (setv (testing-class-slot-2 *testing-class*) "hi"))
   (is (= (setv (testing-class-slot-2 *testing-class*) 8) -8)))
 
-(am:test test-with-atomic-setv-on-accessors
+(fiveam:test test-with-atomic-setv-on-accessors
   (with-atomic-setv ()
     (setv (testing-class-slot-1 *testing-class*) 4))
   (is (= (testing-class-slot-1 *testing-class*) 4))
@@ -343,7 +343,7 @@
       (error "foo")))
   (is (= (testing-class-slot-1 *testing-class*) 0)))
 
-(am:test test-w-a-s*
+(fiveam:test test-w-a-s*
   (let ((*setv-permissiveness* :greedy))
     (with-atomic-setv* ()
       (setv *bounded-number* 1)))
