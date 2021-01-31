@@ -286,7 +286,8 @@ once within BODY."
        (push (list ',place ,place)
 	     with-atomic-setv-accumulator)
        (handler-case (%%setv ,place ,value ,db)
-	 ((or ,@reset-errors) (,c)
+	 (,reset-errors ;; (or ,@reset-errors)
+	   (,c)
 	   (%runtime-atomic-setv-reset :pop t)
 	   (return-from ,block-name ,c))))))
 
@@ -295,9 +296,9 @@ once within BODY."
     `(progn
        ,@(loop for (p v) on pairs by 'cddr
 	       collect `(%runtime-setv-with-reset ,block-name ,reset-errors
-					      ,p ,v ,db)))))
+						  ,p ,v ,db)))))
 
-(defmacro with-runtime-atomic-setv ((&key (re-error t) (handle-errors '(error)))
+(defmacro old-with-runtime-atomic-setv ((&key (re-error t) (handle-errors '(error)))
 				    &body body)
   (alexandria:with-gensyms (block-name args c inner-c)
     `(let ((,c (block ,block-name
@@ -316,7 +317,31 @@ once within BODY."
 			,c)
 		  ,c)))))
 
-(defmacro with-atomic-setv ((&key (re-error t) (handle-errors '(error)))
+(defmacro with-runtime-atomic-setv ((&key (re-error t) handle-conditions)
+				    &body body)
+  (alexandria:with-gensyms (block-name args c inner-c)
+    `(let ((,c (block ,block-name
+		 (let ((with-atomic-setv-accumulator nil))
+		   (macrolet ((setv (&rest ,args)
+				`(%runtime-atomic-setv ,',block-name
+						       ,',handle-conditions
+						       ,@,args)))
+		     (handler-case (progn ,@body)
+		       (,handle-conditions (,inner-c)
+			 (%runtime-atomic-setv-reset)
+			 (return-from ,block-name ,inner-c))))))))
+       (if (and ,re-error (typep ,c ',handle-conditions))
+	   (error 'setv-wrapped-error :error ,c)
+	   (progn
+	     (typecase ,c
+	       (error
+		(warn "WITH-ATOMIC-SETV encountered the error~%~S~%and reset."
+		      ,c))
+	       (warning
+		(warn ,c)))
+	     ,c)))))
+
+(defmacro with-atomic-setv ((&key (re-error t) handle-conditions)
 			    &body body)
   "This macro causes every call to setv to, on an invalid value, reset the place
 in question to its previous value, as well as any previously encountered places.
@@ -325,5 +350,15 @@ this context, handling an error means catching it, resetting all values changed
 via setv, and if RE-ERROR is t, signal an error of type setv-wrapped-error. Any 
 error types not present in HANDLE-ERRORS will not cause a reset and will not 
 be caught - they will propogate up out of with-atomic-setv."
-  `(with-runtime-atomic-setv (:re-error ,re-error :handle-errors ,handle-errors)
+  `(with-runtime-atomic-setv (:re-error ,re-error
+			      :handle-conditions ,(or handle-conditions 'error))
      ,@body))
+
+(defmacro with-a-s-test-args ((&key handle-conditions)
+			      &body body)
+  `(handler-case (progn ,@body)
+     (,(or handle-conditions 'error) ()
+       (format t "handled condition ~S" ',(or handle-conditions 'error)))))
+
+(with-atomic-setv () ; (:handle-conditions (or error warning))
+  "hi!")

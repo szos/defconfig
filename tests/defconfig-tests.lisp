@@ -121,14 +121,14 @@
     :documentation "A number with the bounds 0 to 10 inclusive"
     :tags '("bounded number" "integer") :db *testing-db*
     :reinitialize t :regen-config t)
-  (with-atomic-setv (:handle-errors (defconfig::config-error))
+  (with-atomic-setv (:handle-conditions defconfig::config-error)
     (setv *other-bounded-number* 1
 	  *bounded-number* 1
 	  :db *testing-db*))
   (is (and (equal *bounded-number* 1)
 	   (equal *other-bounded-number* 1)))
   (signals simple-error
-    (with-atomic-setv (:handle-errors (defconfig::config-error))
+    (with-atomic-setv (:handle-conditions defconfig::config-error)
       (setv *other-bounded-number* 2
 	    *bounded-number* 2
 	    :db *testing-db*)
