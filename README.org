@@ -1,7 +1,8 @@
 #+TITLE: DEFCONFIG
 *** Status
     [[https://travis-ci.com/szos/defconfig.svg?branch=main]]
-    Currently failing on every lisp except SBCL and ABCL. Currently attempting to rewrite test suite to pass with all implementations in .yml file.
+
+    Currently tested against SBCL, CCL, ABCL, ECL, and Allegro CL. 
 * Purpose
   Defconfig is a customization and validation framework for places in CL. Its intended use is with user-exposed variables and accessors, to protect users from setting variables to an invalid value an potentially encountering undefined behavior. It can be used with both dynamic variables and ~setf~-able functions. It coexists alongside ~setf~, and does not replace it - ie you can still use ~setf~ if you want to avoid validating the value. 
   
