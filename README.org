@@ -28,20 +28,16 @@
   (defstruct color r g b)
 
   (defun parse-color-from-string (string)
-    (handler-case
-	(make-color :r (parse-integer (subseq string 0 2) :radix 16)
-		    :g (parse-integer (subseq string 2 4) :radix 16)
-		    :b (parse-integer (subseq string 4 6) :radix 16))
-      (error () nil)))
+    (make-color :r (parse-integer (subseq string 0 2) :radix 16)
+		:g (parse-integer (subseq string 2 4) :radix 16)
+		:b (parse-integer (subseq string 4 6) :radix 16)))
 
   (dc:defconfig *background-color* (make-color :r 256 :g 256 :b 256)
     :documentation "the background color for my app"
     :typespec 'color
     :coercer (lambda (value)
-	       (typecase value
-		 (string (or (parse-color-from-string value)
-			     value))
-		 (otherwise value)))
+	       (handler-case (parse-color-from-string value)
+		 (error () value)))
     :tags '("color" "background"))
 #+END_SRC
 
