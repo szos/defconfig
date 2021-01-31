@@ -25,13 +25,12 @@ install:
 # determining whether a test suite fails or succeeds.
 script:
   - cl -e '(ql:quickload :defconfig)
-           (ql:quickload :defconfig.test)
-           (setf *debugger-hook*
+           (ql:quickload :defconfig.test)'
+       -e '(setf *debugger-hook*
                  (lambda (c h)
                    (declare (ignore c h))
-                   (uiop:quit -1)))
-           (setf fiveam:*debug-on-error* t)
-           (multiple-value-bind (a b c)
+                   (uiop:quit -1)))'
+       -e '(multiple-value-bind (a b c)
                (fiveam:run!)
              (unless a
                (uiop:quit 1)))'
