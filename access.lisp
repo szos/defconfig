@@ -82,7 +82,8 @@ list of symbols representing an accessor and a place."
 	 (place->config-info term :db db))))
 
 (defun search-configurable-objects (term &optional database-key)
-  "Returns a list of all configurable objects matching TERM. "
+  "Returns a list of all configurable objects matching TERM. If DATABASE-KEY is 
+provided, search only in that database."
   (let ((dbs (if database-key
 		 (list (get-db-var database-key))
 		 (loop for (key (dbsym ahash . vhash)) on *db-plist* by 'cddr

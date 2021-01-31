@@ -18,9 +18,9 @@
 (defclass config-info-values ()
   ((default-value :initarg :default :reader config-info-default-value
                   :documentation "The default value of this config-info object")
-   (prev-value :initarg :previous :accessor config-info-prev-value
-	       :reader config-info-previous-value
-               :documentation "holds the value previously assigned to the config-info object. initially the same as default-value")))
+   (prev-value :initarg :previous :reader config-info-previous-value
+	       :accessor config-info-prev-value
+	       :documentation "holds the value previously assigned to the config-info object. initially the same as default-value")))
 
 (defclass config-info-metadata ()
   ((name :initarg :name :initform "Unnamed config-info object"
