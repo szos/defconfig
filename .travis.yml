@@ -1,23 +1,42 @@
-language: common-lisp
+language: lisp
 sudo: required
 
 env:
   matrix:
     - LISP=sbcl
 
-install
-  - sudo apt-get install sbcl 	
-  - curl https://raw.githubusercontent.com/luismbo/cl-travis/master/install.sh | bash
-  - cl -l alexandria -l trivial-cltl2 -l fiveam -e '(ql-util:without-prompting (ql:add-to-init-file))'
-  
+# either use a local install.sh script or install it via curl. Feel
+# free to simplify this section in your own .travis.yml file.
+install:
+  - if [ -x ./install.sh ] && head -2 ./install.sh | grep '^# cl-travis' > /dev/null;
+    then
+      ./install.sh;
+    else
+      curl https://raw.githubusercontent.com/luismbo/cl-travis/master/install.sh | sh;
+    fi     
+
+# this serves as an example of how to use the 'cl' script (provided by
+# CIM) to test your Lisp project. Here, we're using the RT framework
+# to do unit testing; other frameworks will have different ways of
+# determining whether a test suite fails or succeeds.
 script:
-  - cl -l alexandria -l trivial-cltl2 -l fiveam
-       -e '(ql:quickload :defconfig)
-       -e '(setf fiveam:*debug-on-error* t
-                 fiveam:*debug-on-failure* t)'
-       -e '(setf *debugger-hook*
+  - cl -e '(ql:quickload :defconfig)
+       	   (ql:quickload :defconfig.test)
+	   (setf *debugger-hook*
                  (lambda (c h)
                    (declare (ignore c h))
-                   (uiop:quit -1)))'
-       -e '(ql:quickload :defconfig.test)'
+                   (uiop:quit -1)))
+	   (setf fiveam:*debug-on-error* t)
+	   (multiple-value-bind (a b c)
+	       (fiveam:run!)
+	     (unless a
+	       (uiop:quit 1)))'
+    [ $? -eq 1 ]
 
+  # testing (albeit not extensively) that, even when invoked directly,
+  # Lisps still have Quicklisp available.
+  - if [ "$LISP" = "sbcl" ]; then
+      sbcl --non-interactive
+           --eval '(format t "~%Quicklisp version ~a is available!~%"
+                             (ql:client-version))';
+    fi
