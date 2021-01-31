@@ -298,20 +298,23 @@ once within BODY."
 					      ,p ,v ,db)))))
 
 (defmacro with-runtime-atomic-setv ((&key (re-error t) (handle-errors '(error)))
-				&body body)
+				    &body body)
   (alexandria:with-gensyms (block-name args c inner-c)
     `(let ((,c (block ,block-name
 		 (let ((with-atomic-setv-accumulator nil))
 		   (macrolet ((setv (&rest ,args)
-				`(%runtime-atomic-setv ,',block-name ,',handle-errors
-						   ,@,args)))
+				`(%runtime-atomic-setv ,',block-name
+						       ,',handle-errors
+						       ,@,args)))
 		     (handler-case (progn ,@body)
 		       ((or ,@handle-errors) (,inner-c)
 			 (%runtime-atomic-setv-reset)
 			 (return-from ,block-name ,inner-c))))))))
        (if (and ,re-error (typep ,c '(or ,@handle-errors)))
 	   (error 'setv-wrapped-error :error ,c)
-	   ,c))))
+	   (progn (warn "WITH-ATOMIC-SETV encountered the error~%~S~%and reset."
+			,c)
+		  ,c)))))
 
 (defmacro with-atomic-setv ((&key (re-error t) (handle-errors '(error)))
 			    &body body)
