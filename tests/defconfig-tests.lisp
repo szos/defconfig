@@ -12,23 +12,80 @@
 
 (in-package :defconfig.test)
 
-(am:test clean
-  (am:is (or (and (boundp '*testing-db*)
-		  (get-db :testing)
-		  (delete-db :testing t))
-	     t))
-  (am:is (eql (setv *setv-permissiveness* :strict) :strict)))
+;; (am:def-suite defconfig-testing-suite
+;;   :description "a testing suite for defconfig")
+
+;; (am:in-suite defconfig-testing-suite)
+
+;; (am:test clean
+;;   (am:is (or (and (boundp '*testing-db*)
+;; 		  (get-db :testing)
+;; 		  (delete-db :testing t))
+;; 	     t))
+;;   (am:is (eql (setv *setv-permissiveness* :strict) :strict)))
+
+;; (define-defconfig-db *testing-db* :testing)
+
+;; (defparameter *testing-db* (defconfig::make-config-database))
+
+(defconfig:delete-db :testing t)
+
+(define-defconfig-db *testing-db* :testing)
+
+(defconfig *light-dark* 'dark
+  :typespec '(member dark light)
+  :db *testing-db*
+  :reinitialize t
+  :regen-config t)
+
+(defconfig *bounded-number* 0
+  :typespec '(integer 0 10)
+  :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
+  :documentation "A number with the bounds 0 to 10 inclusive"
+  :tags '("bounded number" "integer")
+  :db *testing-db*
+  :reinitialize t
+  :regen-config t)
+
+(defconfig *other-bounded-number* 0
+  :typespec '(integer 0 10)
+  :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
+  :documentation "A number with the bounds 0 to 10 inclusive"
+  :tags '("bounded number" "integer")
+  :db *testing-db*
+  :reinitialize t
+  :regen-config t)
+
+(defclass testing-class ()
+    ((slot1 :initarg :1 :accessor testing-class-slot-1)
+     (slot2 :initarg :2 :accessor testing-class-slot-2)))
+
+(defparameter *testing-class* (make-instance 'testing-class :1 1 :2 -2))
+
+(deftype non-positive-integer ()
+  '(integer * 0))
+
+(defconfig (testing-class-slot-1) :unused
+  :typespec '(integer -10 10)
+  :regen-config t)
+
+(defconfig-accessor (testing-class-slot-2)
+  :typespec 'non-positive-integer
+  :coercer (lambda (x)
+	     (if (numberp x)
+		 (- x)
+		 x))
+  :regen-config t)
+
+(defparameter *testing-class* (make-instance 'testing-class :1 0 :2 0))
 
 (am:test makedb
-  (define-defconfig-db *testing-db* :testing)
   (am:is (consp *testing-db*))
   (am:is (hash-table-p (car *testing-db*)))
   (am:is (hash-table-p (cdr *testing-db*)))
   (am:is (eq (get-db :testing) *testing-db*)))
 
 (am:test test-defconfig
-  (defconfig *light-dark* 'dark :typespec '(member dark light)
-    :reinitialize t :regen-config t :db *testing-db*)
   (am:is (eql 'dark *light-dark*))
   (am:is (typep (defconfig::place->config-info '*light-dark* :db *testing-db*)
 		'defconfig::config-info)))
@@ -68,11 +125,9 @@
   (is (eql *light-dark* 'dark)))
 
 (am:test fine-grained-w-a-s-signal-setv-wrapped-error
-  (defconfig *bounded-number* 0 :typespec '(integer 0 10)
-    :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
-    :documentation "A number with the bounds 0 to 10 inclusive"
-    :tags '("bounded number" "integer") :db *testing-db*
-    :reinitialize t :regen-config t)
+  (unless (= *bounded-number* 0)
+    (setv *bounded-number* 0
+	  :db *testing-db*))
   (is (= *bounded-number* 0))
   (signals defconfig::setv-wrapped-error
     (with-atomic-setv ()
@@ -88,11 +143,8 @@
   (is (= *bounded-number* 0)))
 
 (am:test fine-grained-w-a-s-invalid-datum-error
-  (defconfig *bounded-number* 0 :typespec '(integer 0 10)
-    :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
-    :documentation "A number with the bounds 0 to 10 inclusive"
-    :tags '("bounded number" "integer") :db *testing-db*
-    :reinitialize t :regen-config t)
+  (setv *bounded-number* 0
+	:db *testing-db*)
   (is (= *bounded-number* 0))
   (signals defconfig:invalid-datum-error
     (handler-case (with-atomic-setv ()
@@ -110,11 +162,7 @@
   (is (= *bounded-number* 0)))
 
 (am:test test-with-atomic-setv
-  (defconfig *bounded-number* 0 :typespec '(integer 0 10)
-    :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
-    :documentation "A number with the bounds 0 to 10 inclusive"
-    :tags '("bounded number" "integer") :db *testing-db*
-    :reinitialize t :regen-config t)
+  (setv *bounded-number* 0 :db *testing-db*)
   (is (= *bounded-number* 0))
   (signals defconfig::setv-wrapped-error
     (with-atomic-setv ()
@@ -149,16 +197,6 @@
 	(error (defconfig::setv-wrapped-error-condition c))))))
 
 (am:test test-w-a-s-specific-errors
-  (defconfig *bounded-number* 0 :typespec '(integer 0 10)
-    :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
-    :documentation "A number with the bounds 0 to 10 inclusive"
-    :tags '("bounded number" "integer") :db *testing-db*
-    :reinitialize t :regen-config t)
-  (defconfig *other-bounded-number* 0 :typespec '(integer 0 10)
-    :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
-    :documentation "A number with the bounds 0 to 10 inclusive"
-    :tags '("bounded number" "integer") :db *testing-db*
-    :reinitialize t :regen-config t)
   (with-atomic-setv (:handle-conditions defconfig::config-error)
     (setv *other-bounded-number* 1
 	  *bounded-number* 1
@@ -191,13 +229,7 @@
 	   (equal *other-bounded-number* 3))))
 
 (am:test test-for-prev-value-with-atomic-setv
-  (defconfig *bounded-number* 0
-    :typespec '(integer 0 10)
-    :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
-    :documentation "A number with the bounds 0 to 10 inclusive"
-    :tags '("bounded number" "integer")
-    :db *testing-db*
-    :reinitialize t :regen-config t)
+  (setv *bounded-number* 0 :db *testing-db*)
   (signals defconfig:config-error
     (with-atomic-setv ()
       (setv *bounded-number* 1
@@ -279,38 +311,16 @@
   (is (= *bounded-number* 1)))
 
 (am:test test-accessor-validation
-  (defclass testing-class ()
-    ((slot1 :initarg :1 :accessor testing-class-slot-1)
-     (slot2 :initarg :2 :accessor testing-class-slot-2)))
-  (defparameter *testing-class* (make-instance 'testing-class :1 1 :2 -2))
-  (defconfig (testing-class-slot-1) :unused
-    :typespec '(integer -10 10)
-    :regen-config t)
   (setv (testing-class-slot-1 *testing-class*) 2)
   (is (= (testing-class-slot-1 *testing-class*) 2))
   (signals defconfig:invalid-datum-error
     (setv (testing-class-slot-1 *testing-class*) 20))
-
-  (deftype non-positive-integer ()
-    '(integer * 0))
-
-  (defconfig-accessor (testing-class-slot-2)
-    :typespec 'non-positive-integer
-    :coercer (lambda (x)
-	       (if (numberp x)
-		   (- x)
-		   x))
-    :regen-config t)
   (is (= (setv (testing-class-slot-2 *testing-class*) 0) 0))
   (signals defconfig:invalid-datum-error
     (setv (testing-class-slot-2 *testing-class*) "hi"))
   (is (= (setv (testing-class-slot-2 *testing-class*) 8) -8)))
 
 (am:test test-with-atomic-setv-on-accessors
-  (defparameter *testing-class* (make-instance 'testing-class :1 0 :2 0))
-  (defconfig-accessor (testing-class-slot-1) 
-    :typespec '(integer -10 10)
-    :regen-config t)
   (with-atomic-setv ()
     (setv (testing-class-slot-1 *testing-class*) 4))
   (is (= (testing-class-slot-1 *testing-class*) 4))
@@ -334,13 +344,6 @@
   (is (= (testing-class-slot-1 *testing-class*) 0)))
 
 (am:test test-w-a-s*
-  (defconfig *bounded-number* 0
-    :typespec '(integer 0 10)
-    :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
-    :documentation "A number with the bounds 0 to 10 inclusive"
-    :tags '("bounded number" "integer")
-    :db *testing-db*
-    :reinitialize t :regen-config t)
   (let ((*setv-permissiveness* :greedy))
     (with-atomic-setv* ()
       (setv *bounded-number* 1)))
