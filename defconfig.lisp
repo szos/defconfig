@@ -394,9 +394,10 @@ wheras if it is true we generate
 
 If PLACE is a list it is assumed to be an accessor or other setf-able function
 call (ie something defined with defsetf). It must be a list of one element, the 
-accessor or setf-able function to dispatch upon. If REINITIALIZE is true and the
-length of PLACE is 2 then PLACE is set to the default value. REGEN-CONFIG is as
- above.  
+accessor or setf-able function to dispatch upon. When PLACE is a list DEFAULT-VALUE
+is ignored - accessor-config-info objects do not track previous or default values.
+If REINITIALIZE is true and the length of PLACE is 2 then PLACE is set to the 
+default value. REGEN-CONFIG is as above.  
 
 VALIDATOR and TYPESPEC may not coexist in a single defconfig call. VALIDATOR is
 for providing a function to validate values. It must take a single value, the 
