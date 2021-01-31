@@ -26,9 +26,9 @@ script:
   - cl -e '(ql:quickload :defconfig)
            (ql:quickload :defconfig.test)'
        -e '(setf *debugger-hook*
-                 #\'(lambda (mysym h)
-                     (declare (ignore mysym h))
-                     (uiop:quit -1)))'
+                 (function (lambda (mysym h)
+                             (declare (ignore mysym h))
+                             (uiop:quit -1))))'
        -e '(unless (fiveam:run!)
                (uiop:quit 1))'
     [ $? -eq 1 ]
