@@ -306,9 +306,8 @@ the def(parameter|var) form."
 							predicate-provided-p))
   "The worker function for defconfig. This does the following
 1) validating the default value
-2) determining which hash table to place the generated object in
-3) validating the default value
-4) gathering the any preexisting object
+2) validating the default value
+3) gathering the any preexisting object
 
 After gathering the the needed variables, it determines whether or not to set to
 set the place to the default value. After that, it checks whether or not a new 
@@ -319,35 +318,15 @@ database"
                          `(,predicate)
                          `(',predicate)))
             (,hold ,default)
-            (,hash ,(if (listp place)
-                        `(car ,db)
-                        `(cdr ,db)))
-            ;; if place is a list its an accessor
-            (,validated (funcall ,pred ,hold))
-            (,obj ,(if (listp place)
-                       `(gethash ',(if (= (length place) 1)
-                                       (car place)
-                                       place)
-                                 ,hash)
-                       `(gethash ',place ,hash))))
+            (,hash (cdr ,db))
+	    (,validated (funcall ,pred ,hold))
+            (,obj (gethash ',place ,hash)))
        (if ,validated
-           ,@(cond ((and reinitialize (listp place) (= (length place) 2))
-                    `((setf ,place ,hold)))
-                   (reinitialize
-                    `((defparameter ,place ,hold
-                        ,@(when documentation (list documentation)))))
-                   (t (if (listp place)
-                          `(nil)
-                          `((defvar ,place ,hold
-                              ,@(when documentation (list documentation)))))))
-           (error 'invalid-datum-error :place ',place :value ,hold))
+	   (,(if reinitialize 'defparameter 'defvar)
+	    ,place ,hold ,@(when documentation (list documentation)))
+	   (error 'invalid-datum-error :place ',place :value ,hold))
        (if (or (not ,obj) (and ,obj ,regen-config))
-	   (setf ,(if (listp place)
-		      `(gethash ',(if (= (length place) 1)
-				      (car place)
-				      place)
-				,hash)
-		      `(gethash ',place ,hash))
+	   (setf (gethash ',place ,hash)
 		 (make-instance 'config-info
 				,@(when predicate
 				    `(:predicate ,pred))
@@ -357,8 +336,7 @@ database"
 				    `(:documentation ,documentation))
 				:name ,(if name
 					   name
-					   (format nil "config-info object for ~A"
-						   place))
+					   (format nil "config-info-~A" place))
 				,@(when tags
 				    `(:tags ,tags))
 				:place ',place
@@ -371,7 +349,7 @@ database"
 (defun %defconfig (place default &key predicate coercer reinitialize 
 				      regen-config documentation tags name db
 				      valid-values-list)
-  (if (listp place)
+  (if (listp place) ; if place is a list its an accessor
       (%defconfig-accessor place :predicate predicate
 				 :coercer coercer
 				 :regen-config regen-config
