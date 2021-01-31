@@ -5,7 +5,7 @@
   (:use #:cl)
   (:local-nicknames (#:am #:fiveam))
   (:import-from #:defconfig #:defconfig #:setv #:with-atomic-setv #:setv-atomic
-		#:make-config-database #:reset-place
+		#:make-config-database #:reset-place #:with-atomic-setv*
 		#:define-defconfig-db #:get-db #:delete-db #:*setv-permissiveness*
 		#:defconfig-accessor)
   (:import-from #:fiveam #:is #:signals))
@@ -244,8 +244,34 @@
   (with-atomic-setv ()
     (setv (testing-class-slot-1 *testing-class*) 4))
   (is (= (testing-class-slot-1 *testing-class*) 4))
+
+  ;; this will not work with the pure runtime version of w-a-s.
+  ;; below this we use w-a-s* which does its computations jointly at runtime
+  ;; and macroexpansion time via compiler-let. 
   (signals error
     (with-atomic-setv ()
       (setv (testing-class-slot-1 *testing-class*) 8)
       (error "foo")))
-  (is (= (testing-class-slot-1 *testing-class*) 4)))
+  (is (= (testing-class-slot-1 *testing-class*) 4))
+  ;; this is the test that is failing... 
+
+  ;; test with compiler-let w-a-s
+  (setf (testing-class-slot-1 *testing-class*) 0)
+  (signals defconfig:config-error
+    (with-atomic-setv* ()
+      (setv (testing-class-slot-1 *testing-class*) 1)
+      (error "foo")))
+  (is (= (testing-class-slot-1 *testing-class*) 0)))
+
+(am:test test-w-a-s*
+  (defconfig *bounded-number* 0
+    :typespec '(integer 0 10)
+    :coercer (lambda (x) (if (stringp x) (parse-integer x) x))
+    :documentation "A number with the bounds 0 to 10 inclusive"
+    :tags '("bounded number" "integer")
+    :db *testing-db*
+    :reinitialize t :regen-config t)
+  (let ((*setv-permissiveness* :greedy))
+    (with-atomic-setv* ()
+      (setv *bounded-number* 1)))
+  (is (= *bounded-number* 1)))
