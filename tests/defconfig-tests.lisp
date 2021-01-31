@@ -200,8 +200,11 @@
   (signals defconfig:invalid-datum-error
     (setv (testing-class-slot-1 *testing-class*) 20))
 
+  (deftype non-positive-integer ()
+    '(integer * 0))
+
   (defaccessor-config (testing-class-slot-2)
-    :typespec `(integer ,most-negative-fixnum 0)
+    :typespec 'non-positive-integer
     :coercer (lambda (x)
 	       (if (numberp x)
 		   (- x)
