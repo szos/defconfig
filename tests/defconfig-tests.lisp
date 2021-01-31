@@ -193,7 +193,8 @@
     ((slot1 :initarg :1 :accessor testing-class-slot-1)
      (slot2 :initarg :2 :accessor testing-class-slot-2)))
   (defparameter *testing-class* (make-instance 'testing-class :1 1 :2 -2))
-  (defconfig (testing-class-slot-1) 1 :typespec '(integer -10 10)
+  (defconfig (testing-class-slot-1) :unused
+    :typespec '(integer -10 10)
     :regen-config t)
   (setv (testing-class-slot-1 *testing-class*) 2)
   (is (= (testing-class-slot-1 *testing-class*) 2))
