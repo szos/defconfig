@@ -9,7 +9,8 @@
 	   
 	   ;; setters and searchers
 	   #:setv
-	   #:with-atomic-setv
+           #:with-atomic-setv
+	   #:with-atomic-setv*
 	   #:reset-place
 	   #:reset-computed-place
 	   #:clean-previous-value 

@@ -140,8 +140,8 @@
    - *Side Effects*:
      - Any side effects of evaluating a value. All values are evaluated sequentially. If a value is not valid, no further values will be processed.
      - Causes /place/ to be set to /value/ 
-** With-atomic-setv
-   NB: ~with-atomic-setv~ does not currently work with accessor places. Use ~with-atomic-setv*~ instead. It is currently under tested, but (should) function the same as ~with-atomic-setv~. 
+** With-atomic-setv/*
+   There are two versions of this macro:  ~with-atomic-setv~ and ~with-atomic-setv*~. The former tracks places and values purely at runtime, while the latter tracks places at macroexpansion time and values at runtime. The former cannot be used with accessors, while the latter can. The reason for their twin existence is that ~with-atomic-setv*~ will churn through every iteration of a places value; if you setv a variable five times, and on the sixth an error is signalled, the variable will be reset 5 times, eventually reaching its original value. This can get expensive, and due to the inability to macroexpand with ~compiler-let~ I am still unsure if there are corner cases where variables wont be reset propperly. Contrasted with the non-star variant, where it shall reset accordingly, and do so in a manner that it only resets once. 
 
    The ~with-atomic-setv~ macro resets any places set using ~setv~ to the value it held before the call to ~with-atomic-setv~, when a condition is encountered. One can specify whether to re-signal the condition or not with ~:re-error~. If ~:re-error~ is nil a warning will be issued on encountering a handled condition and the condition will be returned. One can specify which conditions to handle with ~:handle-conditions~, which accepts an (unquoted) type specifier. One cannot handle no conditions (that defeats the purpose of ~with-atomic-setv~). 
    
@@ -176,4 +176,7 @@
   WARNING: hello
   => #<SIMPLE-WARNING "hello" {address}>
 #+END_SRC
+
+* Help Wanted
+  Currently, it seems that ~trivial-cltl2~ doesnt load on Clisp, which this system depends upon. Furthermore ~slynk~ will load, but Clisp segfaults immediately after sending something over sly. While I dont use Clisp in my day to day activities, I believe it is best to try and support as much as possible. I will slowly work at understanding what is needed to get this system running on Clisp, but if you, dear reader, know or have an idea of what is needed to get this going please do drop me a line, or open an issue or pull request. 
 
