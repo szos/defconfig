@@ -172,7 +172,19 @@
 	    :db *testing-db*)
       (setv *bounded-number* 50
 	    :db *testing-db*)))
-  (is (= *bounded-number* 5)))
+  (is (= *bounded-number* 5))
+  (signals simple-error
+    (with-atomic-setv (:handle-conditions defconfig:config-error)
+      (setv *bounded-number* 1
+	    :db *testing-db*)
+      (setv *bounded-number* 2
+	    :db *testing-db*)
+      (error "simple error")
+      (setv *bounded-number* 3
+	    :db *testing-db*)
+      (setv *bounded-number* 4
+	    :db *testing-db*)))
+  (is (= *bounded-number* 2)))
 
 (am:test test-setv-atomic
   (is (eql (setv *light-dark* 'dark
