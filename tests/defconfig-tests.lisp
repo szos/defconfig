@@ -5,9 +5,9 @@
   (:use #:cl)
   (:local-nicknames (#:am #:fiveam))
   (:import-from #:defconfig #:defconfig #:setv #:with-atomic-setv #:setv-atomic
-		#:config-info-search #:make-config-database #:reset-place
+		#:make-config-database #:reset-place
 		#:define-defconfig-db #:get-db #:delete-db #:*setv-permissiveness*
-		#:defaccessor-config)
+		#:defconfig-accessor)
   (:import-from #:fiveam #:is #:signals))
 
 (in-package :defconfig.test)
@@ -57,6 +57,14 @@
   (is (eql (let ((defconfig::*setv-permissiveness* :greedy))
 	     (setv *light-dark* 'dark))
 	   'dark))
+  (is (eql *light-dark* 'dark))
+  (let ((*setv-permissiveness* :permissive))
+    (setv *light-dark* "invalid value"))
+  (is (string= *light-dark* "invalid value"))
+  (setf *light-dark* 'dark)
+  (signals defconfig:config-error
+    (let ((*setv-permissiveness* :greedy+permissive))
+      (setv *light-dark* "invalid value")))
   (is (eql *light-dark* 'dark)))
 
 (am:test fine-grained-w-a-s-signal-setv-wrapped-error
