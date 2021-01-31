@@ -223,11 +223,14 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 (defmacro %atomic-setv-reset (&key (pop t))
   "this macro resets all encountered places within a call to with-atomic-setv."
   (declare (special *setv-place-accumulator*))
+  ;; (format t "~&~S~%" *setv-place-accumulator*)
   (let ((place-list (if pop
 			(cdr *setv-place-accumulator*)
 			*setv-place-accumulator*)))
-    `(progn ,@(loop for (db place) in place-list
-		    collect `(reset-place ,place :db ,db :previous-value t)))))
+    `(progn
+       ,@(when pop `((pop with-atomic-setv*-accumulator)))
+       ,@(loop for (db place) in place-list
+	       collect `(setf ,place (pop with-atomic-setv*-accumulator))))))
 
 (defmacro %setv-with-reset (block-name reset-on place value db)
   "Wrap setv in a handler to catch all errors, which will reset all encountered
@@ -235,10 +238,12 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
   (declare (special *setv-place-accumulator*))
   (push (list db place) *setv-place-accumulator*)
   (alexandria:with-gensyms (c)
-    `(handler-case (%%setv ,place ,value ,db)
-       ((or ,@reset-on) (,c)
-	 (%atomic-setv-reset)
-	 (return-from ,block-name ,c)))))
+    `(progn
+       (push ,place with-atomic-setv*-accumulator)
+       (handler-case (%%setv ,place ,value ,db)
+	 ((or ,@reset-on) (,c)
+	   (%atomic-setv-reset)
+	   (return-from ,block-name ,c))))))
 
 (defmacro %atomic-setv (block-name reset-on-errors &rest args)
   "generates a set of calls to %setv-with-reset."
@@ -257,13 +262,14 @@ once within BODY."
   (alexandria:with-gensyms (args block-name c inner-c)
     `(compiler-let ((*setv-place-accumulator* nil))
        (let ((,c (block ,block-name
-		   (macrolet ((setv (&rest ,args)
-				`(%atomic-setv ,',block-name ,',handle-errors
-					       ,@,args)))
-		     (handler-case (progn ,@body)
-		       ((or ,@handle-errors) (,inner-c)
-			 (%atomic-setv-reset :pop nil)
-			 (return-from ,block-name ,inner-c)))))))
+		   (let (with-atomic-setv*-accumulator)
+		     (macrolet ((setv (&rest ,args)
+				  `(%atomic-setv ,',block-name ,',handle-errors
+						 ,@,args)))
+		       (handler-case (progn ,@body)
+			 ((or ,@handle-errors) (,inner-c)
+			   (%atomic-setv-reset :pop nil)
+			   (return-from ,block-name ,inner-c))))))))
 	 (if (and ,re-error (typep ,c '(or ,@handle-errors)))
 	     (error 'setv-wrapped-error :error ,c)
 	     ,c)))))
@@ -278,7 +284,7 @@ once within BODY."
 			     ,(if pop
 				  '(cdr with-atomic-setv-accumulator)
 				  'with-atomic-setv-accumulator))
-	   unless (member var already-reset)
+	   unless (member var already-reset :test 'equalp)
 	     do (setf (symbol-value var) val)
 		(push var already-reset))))
 
