@@ -2,6 +2,8 @@
 
 * Purpose
   Defconfig is a customization and validation framework for places in CL. Its intended use is with user-exposed variables and accessors, to protect users from setting variables to an invalid value an potentially encountering undefined behavior. It can be used with both dynamic variables and ~setf~-able functions. It coexists alongside ~setf~, and does not replace it - ie you can still use ~setf~ if you want to avoid validating the value. 
+  
+  Defconfig is still in its infancy; symbols will be changed, other symbols will be exported, and functionality may change. For this reason, do not ~:use~ defconfig. Instead ~:import~ the symbols you want to use - namely ~#:defconfig~, ~#:setv~, ~#:with-atomic-setv~, ~#:define-defconfig-db~, ~#:get-db~, and ~#:*setv-permissiveness*~. 
 
 * Usage
   The basic usage of this system is through the macros ~defconfig~, ~setv~ and ~with-atomic-setv~. The macro ~defconfig~ defines a configuration object which is used to check values against a predicate. The macro ~setv~ uses these configuration objects to validate values before calling setf. An error is signalled if A) the value is invalid, B) the coerced value is invalid (when applicable) or C) the place one is trying to set doesnt have a configuration object. For A and B, restarts are put into place to ignore the invalidity and set regardless. The macro ~with-atomic-setv~ collects all places set with ~setv~ in its body and if an error is signalled resets all changed values back to their original value before the ~with-atomic-setv~ form. 
