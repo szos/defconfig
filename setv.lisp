@@ -241,7 +241,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
     `(progn
        (push ,place with-atomic-setv*-accumulator)
        (handler-case (%%setv ,place ,value ,db)
-	 ((or ,@reset-on) (,c)
+	 (,reset-on (,c)
 	   (%atomic-setv-reset)
 	   (return-from ,block-name ,c))))))
 
@@ -254,25 +254,28 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 	       collect `(%setv-with-reset ,block-name ,reset-on-errors
 					  ,p ,v ,db)))))
 
-(defmacro with-atomic-setv*
-    ((&key (re-error t) (handle-errors '(error))) &body body)
-  "This macro functions the same as WITH-ATOMIC-SETV, but tracks value via the 
-previous-value slot instead of in a list. As such any given place may be setv-ed
-once within BODY."
+(defmacro %with-atomic-setv* ((&key (re-error t) handle-conditions) &body body)
+  "This macro utilizes compiler-let to allow rollbacks of accessor stuff. "
   (alexandria:with-gensyms (args block-name c inner-c)
     `(compiler-let ((*setv-place-accumulator* nil))
        (let ((,c (block ,block-name
 		   (let (with-atomic-setv*-accumulator)
 		     (macrolet ((setv (&rest ,args)
-				  `(%atomic-setv ,',block-name ,',handle-errors
+				  `(%atomic-setv ,',block-name
+						 ,',handle-conditions
 						 ,@,args)))
 		       (handler-case (progn ,@body)
-			 ((or ,@handle-errors) (,inner-c)
+			 (,handle-conditions (,inner-c)
 			   (%atomic-setv-reset :pop nil)
 			   (return-from ,block-name ,inner-c))))))))
-	 (if (and ,re-error (typep ,c '(or ,@handle-errors)))
+	 (if (and ,re-error (typep ,c ',handle-conditions))
 	     (error 'setv-wrapped-error :error ,c)
 	     ,c)))))
+
+(defmacro with-atomic-setv* ((&key (re-error t) handle-conditions) &body body)
+  `(%with-atomic-setv* (:re-error ,re-error
+			:handle-conditions ,(or handle-conditions 'error))
+     ,@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Runtime with-atomic-setv ;;;
