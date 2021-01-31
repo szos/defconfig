@@ -81,7 +81,7 @@
     (compute-something-that-signals-an-error)
     (dc:setv *bounded-number* 2))
 
-  (dc:with-atomic-setv (:handle-errors (dc:config-error))
+  (dc:with-atomic-setv (:handle-conditions dc:config-error)
     (dc:setv *bounded-number* 1)
     (compute-something-that-signals-an-error)
     (dc:setv *bounded-number* 2))
@@ -90,7 +90,22 @@
 
    The second of these first sets ~*bounded-number*~ to 1, and then an error is signalled by ~(compute-something-that-signals-an-error)~. It catches this error and resets ~*bounded-number*~ to 0. 
 
-   The third of these first sets ~*bounded-number*~ to 1, and then an error is signalled that it is not set up to handle; it will only catch errors of type ~config-error~. Whether or not it attempts to set ~*bounded-number*~ to 2 is determined by what handlers and restarts are set up around the error. If there is a restart that doesnt unwind the stack then ~*bounded-number*~ will be set to 2, but if there is a non-local transfer of control to a point outside of ~with-atomic-setv~ then ~*bounded-number*~ will remain set to 1. This is the only way to escape ~with-atomic-setv~ that leaves things in a partially configured state.
+   The third of these first sets ~*bounded-number*~ to 1, and then an error is signalled that it is not set up to handle; it will only catch errors of type ~config-error~. Whether or not it attempts to set ~*bounded-number*~ to 2 is determined by what handlers and restarts are set up around the error. If there is a restart that doesnt unwind the stack then ~*bounded-number*~ will be set to 2, but if there is a non-local transfer of control to a point outside of ~with-atomic-setv~ then ~*bounded-number*~ will remain set to 1. This is the only way to escape ~with-atomic-setv~ that leaves things in a partially configured state. Lets look at an example of this that would end up with ~*bounded-number*~ being 2: 
+#+BEGIN_SRC lisp
+  (defun compute-something-that-signals-an-error ()
+    (restart-case (error "we encountered an error, oh no!")
+      (continue () nil)))
+
+  (handler-bind ((error
+		   (lambda (c)
+		     (declare (ignore c))
+		     (when (find-restart 'continue)
+		       (invoke-restart 'continue)))))
+    (dc:with-atomic-setv (:handle-conditions dc:config-error)
+      (dc:setv *bounded-number* 1)
+      (compute-something-that-signals-an-error)
+      (dc:setv *bounded-number* 2)))
+#+END_SRC
 
 * A Note About Reset-Place
   The macro ~reset-place~ (and by extension the function ~reset-computed-place~) could be a little confusing. It takes a place, and resets it to its default value. However if ~previous-value~ is true, then it resets to the previous value instead. Before setting, it checks if the current value is eql to the value to reset to (this can be controlled with ~already-reset-test~) and if it is it isnt reset as it would have no effect. If it isnt, we both reset the place, AND set the ~previous-value~ slot to the (now no longer) current value. thusly, if the default value is a, previous value is b, and current value is c, and we reset to the default value, we will have a default of a, previous of c, and current of a. If we had instead reset to the previous value, we effectively swap the previous and current values. 
@@ -118,7 +133,7 @@
      - /db/ - the database to place /config-info/ into. 
 ** Setv
    The ~setv~ macro expands into multiple calls to ~%setv~, which validates a value before setting the place to it. It functions the same as ~setf~, but accepts the keyword ~:db~ to specify a database other than the default one provided by ~defconfig~. 
-** With-atomic-setv<
+** With-atomic-setv
    The ~with-atomic-setv~ macro resets any places set using ~setv~ to the value it held before the call to ~with-atomic-setv~, when a condition is encountered. One can specify whether to re-signal the condition or not with ~:re-error~. If ~:re-error~ is nil a warning will be issued on encountering a handled condition and the condition will be returned. One can specify which conditions to handle with ~:handle-conditions~, which accepts an (unquoted) type specifier. One cannot handle no conditions (that defeats the purpose of ~with-atomic-setv~). 
    
    An example: 
