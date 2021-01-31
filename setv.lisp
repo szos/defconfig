@@ -163,26 +163,28 @@ to be provided if were calling this in a setv expansion."
 
 (defmacro %%setv (place value db)
   (alexandria:with-gensyms (hold hash config-info-object invalid-sym
-				 validated-value coer setf?-sym)
+				 validated-value coer setf?-sym block)
     `(let ((,hold ,value))
-       (let* ((,hash ,(if (listp place) `(car ,db) `(cdr ,db)))
-	      (,config-info-object
-		(let ((obj (%fsetv-get-config-info-object ',place ,hash ',db
-							  ',setf?-sym)))
-		  (if (eql obj ',setf?-sym)
-		      (setf ,place ,hold)
-		      obj)))
-	      (,coer (config-info-coercer ,config-info-object))
-	      (,validated-value
-		;; get a validated value - we use this instead of hold because
-		;; if there is a coercer for the place we will return invalid-sym
-		;; when ,hold is invalid, and if not we will error out with
-		;; restarts in place to provide a value or set regardless
-		(%fsetv-ensure-validity ,config-info-object ,hold ',invalid-sym
-					(not ,coer) ',place)))
-	 (if (eql ,validated-value ',invalid-sym)
-	     (%%setv-coerced ,place ,hold ,config-info-object ,coer)
-	     (%setv-ensure-setf ,place ,validated-value ,config-info-object))))))
+       (block ,block 
+	 (let* ((,hash ,(if (listp place) `(car ,db) `(cdr ,db)))
+		(,config-info-object
+		  (let ((obj (%fsetv-get-config-info-object ',place ,hash ',db
+							    ',setf?-sym)))
+		    (if (eql obj ',setf?-sym)
+			(progn (setf ,place ,hold)
+			       (return-from ,block ,hold))
+			obj)))
+		(,coer (config-info-coercer ,config-info-object))
+		(,validated-value
+		  ;; get a validated value - we use this instead of hold because
+		  ;; if there is a coercer for the place we will return invalid-sym
+		  ;; when ,hold is invalid, and if not we will error out with
+		  ;; restarts in place to provide a value or set regardless
+		  (%fsetv-ensure-validity ,config-info-object ,hold ',invalid-sym
+					  (not ,coer) ',place)))
+	   (if (eql ,validated-value ',invalid-sym)
+	       (%%setv-coerced ,place ,hold ,config-info-object ,coer)
+	       (%setv-ensure-setf ,place ,validated-value ,config-info-object)))))))
 
 (defmacro setv (&rest args)
   "Setv must get an even number of ARGS - every place must have a value. Setv

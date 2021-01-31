@@ -11,7 +11,7 @@
   The basic usage of this system is through the macros ~defconfig~, ~setv~ and ~with-atomic-setv~. The macro ~defconfig~ defines a configuration object which is used to check values against a predicate. The macro ~setv~ uses these configuration objects to validate values before calling setf. An error is signalled if A) the value is invalid, B) the coerced value is invalid (when applicable) or C) the place one is trying to set doesnt have a configuration object. For A and B, restarts are put into place to ignore the invalidity and set regardless. The macro ~with-atomic-setv~ collects all places set with ~setv~ in its body and if an error is signalled resets all changed values back to their original value before the ~with-atomic-setv~ form. 
 
 * Regarding This Readme
-  This readme is not a complete explanation of defconfig. Please see =package.lisp= for a list of exported symbols and see the symbol docstrings for a better idea of what the function/macro/generic/error/etc does. Most (exported) symbols are well documented, slots have decent documentation describing their purpose/use, and errors should be grokkable from their ~:report~ functions.
+  This readme is not a complete explanation of defconfig. Please see =package.lisp= for a list of exported symbols and see the symbol docstrings for a better idea of what it does. Most (exported) symbols are well documented, slots have decent documentation describing their purpose/use, and errors should be grokkable from their ~:report~ functions.
 
 * Basic Tutorial
   Lets look at an example where one is defining a user-exposed variable for the background color of an application. We will define a configuration object which checks that the value is indeed a color, and a coercer that tries to parse invalid values into a color object. finally we will use ~setv~ and ~with-atomic-setv~ to modify this value. 
@@ -102,6 +102,14 @@
       (compute-something-that-signals-an-error)
       (dc:setv *bounded-number* 2)))
 #+END_SRC
+
+** Controlling Permissiveness
+   By setting ~*setv-permissiveness*~ one can control how ~setv~ handles missing configuration objects. It can be set to one of the following values: 
+   - ~:strict~ - Signal all errors as they occur. This is the default behavior
+   - ~:greedy~ - When unable to find a configuration object in the specified database, search in all databases for a matching configuration object, using the first one encountered.
+   - ~:permissive~ - When a configuration object isnt found, set the variable to the value.
+   - ~:greedy+permissive~ - When a configuration object isnt found, search for one as per ~:greedy~. If one still isnt found, set the variable to the value. 
+
 
 * A Note About Reset-Place
   The macro ~reset-place~ (and by extension the function ~reset-computed-place~) could be a little confusing. It takes a place, and resets it to its default value. However if ~previous-value~ is true, then it resets to the previous value instead. Before setting, it checks if the current value is eql to the value to reset to (this can be controlled with ~already-reset-test~) and if it is it isnt reset as it would have no effect. If it isnt, we both reset the place, AND set the ~previous-value~ slot to the (now no longer) current value. thusly, if the default value is a, previous value is b, and current value is c, and we reset to the default value, we will have a default of a, previous of c, and current of a. If we had instead reset to the previous value, we effectively swap the previous and current values. 
