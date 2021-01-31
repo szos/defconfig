@@ -47,7 +47,7 @@
    Now, somewhere in the users =~/.myapp.d/init=, they want to set the background color to black. Lets look at three examples of that: 
 #+BEGIN_SRC lisp
   (dc:setv *background-color* (make-color :r 0 :g 0 :b 0))
-  (dc:setv *background-color* "#000000")
+  (dc:setv *background-color* "000000")
   (dc:setv *background-color* "i dont know what this user is thinking!")
 #+END_SRC
    The first of these works without a hitch; ~setv~ determines that it is a valid value as per the typespec the user provided, and sets ~*background-color*~ to black. 
@@ -67,19 +67,22 @@
 		     (error () x))
 		   x)))
 
-  (dc:with-atomic-setv ()
-    (setv *bounded-number* 1)
-    (setv *bounded-number* 50))
+  (defun compute-something-that-signals-an-error ()
+    (error "we encountered an error, oh no!"))
 
   (dc:with-atomic-setv ()
-    (setv *bounded-number* 1)
-    (compute-something-that-signals-an-error)
-    (setv *bounded-number* 2))
+    (dc:setv *bounded-number* 1)
+    (dc:setv *bounded-number* 50))
 
-  (dc:with-atomic-setv (:handle-errors (config-error))
-    (setv *bounded-number* 1)
+  (dc:with-atomic-setv ()
+    (dc:setv *bounded-number* 1)
     (compute-something-that-signals-an-error)
-    (setv *bounded-number* 2))
+    (dc:setv *bounded-number* 2))
+
+  (dc:with-atomic-setv (:handle-errors (dc:config-error))
+    (dc:setv *bounded-number* 1)
+    (compute-something-that-signals-an-error)
+    (dc:setv *bounded-number* 2))
 #+END_SRC
    The first of the calls to ~with-atomic-setv~ first sets ~*bounded-number*~ to 1, and then encounters an error when trying to set it to 50. It catches that error and resets ~*bounded-number*~ to 0, the value ~*bounded-number*~ had before the call to ~with-atomic-setv~. 
 
@@ -116,7 +119,9 @@
 ** Setv-atomic
    The ~setv-atomic~ macro functions the same as ~setv~, but if any errors are encountered all places are reset to their original value. 
 ** With-atomic-setv
-   The ~with-atomic-setv~ macro resets any places set with ~setv~ to the value the held before ~with-atomic-setv~ when an error is encountered. Unless ~:re-error~ is nil, ~setv-wrapped-error~ is signalled with the ~condition~ slot holding our original error. If no condition is signalled the final form of ~body~ is returned. 
+   The ~with-atomic-setv~ macro resets any places set using ~setv~ to the value it held before the call to ~with-atomic-setv~, when a condition is encountered. One can specify whether to re-signal the condition or not with ~:re-error~. If ~:re-error~ is nil a warning will be issued on encountering a handled condition and the condition will be returned. One can specify which conditions to handle with ~:handle-errors~, which defaults to all errors. One can specify which conditions to explicitly NOT handle by wrapping it in a not statement. for example: ~(with-atomic-setv (:handle-errors (my-err (not my-other-err))) ...)~ will trigger a reset if a condition of type ~my-err~ is encountered, or any other condition that isnt ~my-other-err~. 
+
+Unless ~:re-error~ is nil, ~setv-wrapped-error~ is signalled with the ~condition~ slot holding our original error. If no condition is signalled the final form of ~body~ is returned. 
 ** Reset-place 
    The ~reset-place~ macro resets the place to the default value provided by the corresponding config-info object found within the database. If no object is found ~no-config-found-error~ is signalled.
 
