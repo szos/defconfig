@@ -8,6 +8,9 @@
   :serial t
   :depends-on (#:alexandria #:trivial-cltl2)
   :components ((:file "package")
+	       (:file "classes")
+	       (:file "conditions")
+	       (:file "database")
                (:file "defconfig")
                (:file "setv")
                (:file "access")))
