@@ -30,15 +30,15 @@
 
   (defun parse-color-from-string (string)
     (make-color :r (parse-integer (subseq string 0 2) :radix 16)
-		:g (parse-integer (subseq string 2 4) :radix 16)
-		:b (parse-integer (subseq string 4 6) :radix 16)))
+                :g (parse-integer (subseq string 2 4) :radix 16)
+                :b (parse-integer (subseq string 4 6) :radix 16)))
 
   (dc:defconfig *background-color* (make-color :r 256 :g 256 :b 256)
     :documentation "the background color for my app"
     :typespec 'color
     :coercer (lambda (value)
-	       (handler-case (parse-color-from-string value)
-		 (error () value)))
+               (handler-case (parse-color-from-string value)
+                 (error () value)))
     :tags '("color" "background"))
 #+END_SRC
 
@@ -61,10 +61,10 @@
   (dc:defconfig *bounded-number* 0
     :typespec '(integer 0 10)
     :coercer (lambda (x)
-	       (if (stringp x)
-		   (handler-case (parse-integer x)
-		     (error () x))
-		   x)))
+               (if (stringp x)
+                   (handler-case (parse-integer x)
+                     (error () x))
+                   x)))
 
   (defun compute-something-that-signals-an-error ()
     (error "we encountered an error, oh no!"))
@@ -94,10 +94,10 @@
       (continue () nil)))
 
   (handler-bind ((error
-		   (lambda (c)
-		     (declare (ignore c))
-		     (when (find-restart 'continue)
-		       (invoke-restart 'continue)))))
+                   (lambda (c)
+                     (declare (ignore c))
+                     (when (find-restart 'continue)
+                       (invoke-restart 'continue)))))
     (dc:with-atomic-setv (:handle-conditions dc:config-error)
       (dc:setv *bounded-number* 1)
       (compute-something-that-signals-an-error)
@@ -116,25 +116,48 @@
   Furthermore, we cannot reset accessor places.
 
 * Macros
-** Defconfig
-   The ~defconfig~ macro generates a config-info object and registers it in a database. The signature is *defconfig* /place default-value &key validator typespec coercer reinitialize regen-config name documentation tags db/ => /config-info/
-   - *Side Effects*:
-     - Causes the /config-info/ object to be placed into /db/
-     - May cause /place/ to be set to /default-value/
-     - May cause /place/ to be defined in the global scope
-     - Any side effects of running /validator/.
+** Define-variable-config 
+   *define-variable-config* /place default-value &key validator typespec coercer documentation db tags regen-config => config-info/
+
+   The ~define-variable-config~ macro generates a config info object and registers it in a database. 
+   
+   - *Side Effects*
+     - Causes /config-info/ to be places into /db/
+     - Any side effects of calling /validator/ on /default-value/, when /validator/ is provided.
    - Arguments and Values
-     - /place/ - either a symbol or a list denoting a setf-able function
-     - /default-value/ - the default value for /place/. Must conform to /validator/ or /typespec/ when provided
-     - /validator/ - a function of one argument which returns true when its argument is valid for /place/ and nil when it is invalid. May not be provided alongside /typespec/
-     - /typespec/ - a type specifier denoting valid types for /place./ May not be provided alongside /validator/
-     - /coercer/ - a function of one argument which should attempt to coerce its argument to a valid value.
-     - /reinitialize/ - when true, and /place/ is a symbol, will reinitialize place by generating a defparameter form with /place/, /default-value/, and /documentation/. 
-     - /regen-config/ - when true /config-info/ will be regenerated and replace any preexisting object.
-     - /name/ - the name to give /config-info/.
-     - /documentation/ - documentation for /config-info/. Will also be used for any generated defvar or defparameter form.
-     - /tags/ - a list of strings used in searching for a config object.
-     - /db/ - the database to place /config-info/ into. 
+     - /place/ - a symbol denoting a dynamic variable.
+     - /default-value/ - the default value for /place/. Must conform to /validator/ or /typespec/ when provided.
+     - /validator/ - a function of one argument returning true or nil. May not be provided alongside /typespec/. 
+     - /typespec/ - a type specifier denoting valid types for /place/. May not be provided alongside /validator/
+     - /coercer/ - a function of one argument used to attempt to coerce its argument to a valid value. Will only be called on invalid values.
+     - /regen-config/ - when true, regenerate the configuration object regarless of its pre-existence
+     - /db/ - the database to register /config-info/ in.
+     - /tags/ - a set of tags used when searching for a configuration object
+** Define-accessor-config 
+   *define-accessor-config* /place &key validator typespec coercer documentation db tags regen-config => config-info/
+
+   The ~define-accessor-config~ macro generates a config info object and registers it in a database. 
+
+   - *Side Effects*
+     - Causes /config-info/ to be places into /db/
+   - Arguments and Values
+     - /place/ - a symbol denoting a dynamic variable.
+     - /validator/ - a function of one argument returning true or nil. May not be provided alongside /typespec/. 
+     - /typespec/ - a type specifier denoting valid types for /place/. May not be provided alongside /validator/
+     - /coercer/ - a function of one argument used to attempt to coerce its argument to a valid value. Will only be called on invalid values.
+     - /regen-config/ - when true, regenerate the configuration object regarless of its pre-existence
+     - /db/ - the database to register /config-info/ in.
+     - /tags/ - a set of tags used when searching for a configuration object
+** Defconfig
+   *defconfig* /place &rest args => config-info/
+
+   The ~defconfig~ macro wraps around the ~define-*-config~ macros. When /place/ is a symbol, it expands into a call to ~define-variable-config~, as well as a call to either ~defparameter~ or ~defvar~. When /place/ is a symbol one additional key argument is accepted: ~:reinitialize~. When true, a ~defparameter~ form is generated. 
+
+   - *Side Effects*:
+     - Causes /config-info/ to be placed into /db/
+     - May modify /place/
+     - May cause /place/ to be defined as a dynamic variable
+     - Any side effects of running /validator/
 ** Setv
    The ~setv~ macro expands into multiple calls to ~%setv~, which validates a value before setting the place to it. It functions the same as ~setf~, but accepts the keyword ~:db~ to specify a database other than the default one provided by ~defconfig~. Returns the final value. 
    - *Side Effects*:

@@ -4,7 +4,8 @@
   (:use #:cl)
   (:import-from #:trivial-cltl2 #:compiler-let)
   (:export #:defconfig ; main macro
-	   #:defconfig-accessor 
+           #:define-accessor-config
+	   #:define-variable-config
 	   #:*setv-permissiveness*
 	   
 	   ;; setters and searchers
