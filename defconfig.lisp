@@ -342,10 +342,9 @@ the def(parameter|var) form."
 
 PLACE may be either a symbol or a list of length 1. If PLACE is a list, defconfig
 functions as a wrapper around define-accessor-config. If it is a symbol, defconfig 
-defines a variable config as well as a dynamic variable. 
-
-If PLACE is a symbol, and the first element of ARGS is a keyword, and the second 
-element of ARGS is not a keyword, the default value will be the value of PLACE
+defines a variable config as well as a dynamic variable. Additionally, if the first
+element of ARGS is a keyword and the second element of ARGS is not a keyword, the
+default value will be the value of PLACE. 
 
 The following keys are acceptable in ARGS: VALIDATOR, TYPESPEC, COERCER, 
 DOCUMENTATION, DB, TAGS, and REGEN-CONFIG. REINITIALIZE is also acceptable if 
