@@ -289,11 +289,12 @@ the def(parameter|var) form."
                                     (list :tags tags))))
            ,obj))))
 
-(defmacro define-accessor-config (place &key validator typespec coercer db tags
-                                          regen-config documentation)
+(defmacro define-accessor-config (accessor &key validator typespec coercer db tags
+					     regen-config documentation)
+  "Define an accessor config object and place it in DB with the key ACCESSOR"
   (when (and validator typespec)
     (error "The arguments :VALIDATOR and :TYPESPEC cannot both be supplied"))
-  `(defconf-a ,place
+  `(defconf-a ,accessor
        ,@(cond (typespec `(:predicate (lambda (x) (typep x ,typespec))))
                (validator `(:predicate ,validator)))
      :coercer ,coercer :db ,db :tags ,tags :documentation ,documentation
@@ -327,6 +328,7 @@ the def(parameter|var) form."
 (defmacro define-variable-config (place default-value
                                   &key validator typespec coercer db tags
                                     documentation regen-config)
+  "Define a variable config object and place it in DB with the key PLACE."
   (when (and validator typespec)
     (error "The arguments :VALIDATOR and :TYPESPEC cannot both be supplied"))
   `(defconf-v ,place ,default-value
@@ -338,20 +340,15 @@ the def(parameter|var) form."
 (defmacro defconfig (place &rest args)
   "Defconfig defines a config-info object and potentially a dynamic variable. 
 
-PLACE can be a symbol or a list. If it is a symbol it is assumed to be a dynamic
-variable. If a config-info object has already been generated and placed in DB, 
-another one is not generated unless REGEN-CONFIG is true. Similarly, if 
-REINITIALIZE is false we generate a defvar call of: 
-; (defvar PLACE DEFAULT-VALUE DOCUMENTATION)
-wheras if it is true we generate
-; (defparameter PLACE DEFAULT-VALUE DOCUMENTATION)
+PLACE may be either a symbol or a list of length 1. If PLACE is a list, defconfig
+functions as a wrapper around define-accessor-config. If it is a symbol, defconfig 
+defines a variable config as well as a dynamic variable. 
 
-If PLACE is a list it is assumed to be an accessor or other setf-able function
-call (ie something defined with defsetf). It must be a list of one element, the 
-accessor or setf-able function to dispatch upon. When PLACE is a list DEFAULT-VALUE
-is ignored - accessor-config-info objects do not track previous or default values.
-If REINITIALIZE is true and the length of PLACE is 2 then PLACE is set to the 
-default value. REGEN-CONFIG is as above.  
+If PLACE is a symbol, the first element of ARGS must be the default value.
+
+The following keys are acceptable in ARGS: VALIDATOR, TYPESPEC, COERCER, 
+DOCUMENTATION, DB, TAGS, and REGEN-CONFIG. REINITIALIZE is also acceptable if 
+PLACE is a symbol. 
 
 VALIDATOR and TYPESPEC may not coexist in a single defconfig call. VALIDATOR is
 for providing a function to validate values. It must take a single value, the 
@@ -375,11 +372,8 @@ removed from the database plist the user has a good understanding of what they
 are doing and is managing the database themselves. (databases must be manually
 removed from the plist). 
 
-NAME is a string naming the generated config-info object. it is currently
-unused.
-
 TAGS are strings that can be used to search for a config-info object. The search 
-functionality is currently only partially implemented. "
+functionality is currently only partially implemented."
   (if (consp place)
       `(define-accessor-config ,(car place) ,@args)
       (destructuring-bind (default &key validator typespec coercer db reinitialize
