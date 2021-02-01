@@ -7,26 +7,10 @@
   (:import-from #:defconfig #:defconfig #:setv #:with-atomic-setv #:setv-atomic
 		#:make-config-database #:reset-place #:with-atomic-setv*
 		#:define-defconfig-db #:get-db #:delete-db #:*setv-permissiveness*
-		#:defconfig-accessor)
+		#:define-accessor-config)
   (:import-from #:fiveam #:is #:signals))
 
 (in-package :defconfig.test)
-
-;; (fiveam:def-suite defconfig-testing-suite
-;;   :description "a testing suite for defconfig")
-
-;; (fiveam:in-suite defconfig-testing-suite)
-
-;; (fiveam:test clean
-;;   (fiveam:is (or (and (boundp '*testing-db*)
-;; 		  (get-db :testing)
-;; 		  (delete-db :testing t))
-;; 	     t))
-;;   (fiveam:is (eql (setv *setv-permissiveness* :strict) :strict)))
-
-;; (define-defconfig-db *testing-db* :testing)
-
-;; (defparameter *testing-db* (defconfig::make-config-database))
 
 (defconfig:delete-db :testing t)
 
@@ -65,11 +49,11 @@
 (deftype non-positive-integer ()
   '(integer * 0))
 
-(defconfig (testing-class-slot-1) :unused
+(defconfig (testing-class-slot-1)
   :typespec '(integer -10 10)
   :regen-config t)
 
-(defconfig-accessor (testing-class-slot-2)
+(define-accessor-config testing-class-slot-2
   :typespec 'non-positive-integer
   :coercer (lambda (x)
 	     (if (numberp x)
@@ -335,7 +319,7 @@
   (is (= (testing-class-slot-1 *testing-class*) 8))
   ;; this ~is~ was the test that is failing... 
 
-  ;; test with compiler-let w-a-s*
+  ;; ;; test with compiler-let w-a-s*
   (setf (testing-class-slot-1 *testing-class*) 0)
   (signals defconfig:config-error
     (with-atomic-setv* ()
@@ -348,3 +332,34 @@
     (with-atomic-setv* ()
       (setv *bounded-number* 1)))
   (is (= *bounded-number* 1)))
+
+(defconfig *var1* 0
+  :typespec 'integer)
+
+(defconfig *var2* 0
+  :typespec 'integer)
+
+(defconfig *var3* 0
+  :typespec 'integer)
+
+(defconfig *var4* 0
+  :typespec 'integer)
+
+(defconfig *var5* 0
+  :typespec 'integer)
+
+(fiveam:test test-many-setvs*
+  (signals error 
+    (with-atomic-setv* ()
+      (setv *var1* 1)
+      (setv *var2* 1)
+      (setv *var3* 1)
+      (setv *var4* 1)
+      (setv *var5* 1)
+      (error "foo")))
+  (is (= *var1* 0))
+  (is (= *var2* 0))
+  (is (= *var3* 0))
+  (is (= *var4* 0))
+  (is (= *var5* 0)))
+

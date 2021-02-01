@@ -269,119 +269,73 @@ the def(parameter|var) form."
 
 ;;; actual defconfig workers and macros.
 
-(defun %defconfig-accessor (place &key coercer tags name regen-config
-				    (db '*default-db*) valid-values-list
-				    documentation
-				    (predicate 'cl::identity predicate-provided-p))
-  (alexandria:with-gensyms (hash obj pred)
-    `(let* ((,pred ,@(if predicate-provided-p
-                         `(,predicate)
-                         `(',predicate)))
-	    (,hash (car ,db))
-	    (,obj (gethash ',(car place) ,hash)))
-       (if (or (not ,obj) (and ,obj ,regen-config))
-	   (setf (gethash ',(car place) ,hash)
-		 (make-instance 'accessor-config-info
-				:predicate ,pred
-				,@(when coercer
-				    `(:coercer ,coercer))
-				,@(when documentation
-				    `(:documentation ,documentation))
-				:name ,(if name
-					   name
-					   (format nil "config-info object for ~A"
-						   place))
-				,@(when tags
-				    `(:tags ,tags))
-				:place ',place
-				,@(when valid-values-list
-				    `(:valid-values ,valid-values-list))
-				:db ',db))
-	   ,obj))))
-
-(defun %defconfig-parameter (place default &key coercer reinitialize tags name
-					     regen-config (db '*default-db*)
-					     valid-values-list documentation
-					     (predicate 'cl::identity
-							predicate-provided-p))
-  "The worker function for defconfig. This does the following
-1) validating the default value
-2) validating the default value
-3) gathering the any preexisting object
-
-After gathering the the needed variables, it determines whether or not to set to
-set the place to the default value. After that, it checks whether or not a new 
-config-info object should be created and if so creates it and places it in the 
-database"
+(defmacro defconf-v (place default &key predicate coercer db tags documentation
+                                     regen)
   (alexandria:with-gensyms (hold hash validated obj pred)
-    `(let* ((,pred ,@(if predicate-provided-p
-                         `(,predicate)
-                         `(',predicate)))
+    `(let* ((,pred ,(if predicate predicate 'cl::identity))
             (,hold ,default)
-            (,hash (cdr ,db))
-	    (,validated (funcall ,pred ,hold))
+            (,hash (cdr ,(if db db '*default-db*)))
+            (,validated (funcall ,pred ,hold))
             (,obj (gethash ',place ,hash)))
-       (if ,validated
-	   (,(if reinitialize 'defparameter 'defvar)
-	    ,place ,hold ,@(when documentation (list documentation)))
-	   (error 'invalid-datum-error :place ',place :value ,hold))
-       (if (or (not ,obj) (and ,obj ,regen-config))
-	   (setf (gethash ',place ,hash)
-		 (make-instance 'config-info
-				,@(when predicate
-				    `(:predicate ,pred))
-				,@(when coercer
-				    `(:coercer ,coercer))
-				,@(when documentation
-				    `(:documentation ,documentation))
-				:name ,(if name
-					   name
-					   (format nil "config-info-~A" place))
-				,@(when tags
-				    `(:tags ,tags))
-				:place ',place
-				:default ,hold
-				,@(when valid-values-list
-				    `(:valid-values ,valid-values-list))
-				:db ',db))
-	   ,obj))))
+       (unless ,validated (error 'invalid-datum-error :place ',place :value ,hold))
+       (if (or (not ,obj) ,regen)
+           (setf (gethash ',place ,hash)
+                 (make-instance 'config-info
+                                :name ,(format nil "config-info-~A" place)
+                                :predicate ,pred
+                                ,@(when coercer
+                                    `(:coercer ,coercer))
+                                ,@(when documentation
+                                    `(:documentation ,documentation ))
+                                ,@(when tags
+                                    `(:tags ,tags))
+                                :place ',place
+                                :default ,hold
+                                :db ,(if db db '*default-db*)))
+           ,obj))))
 
-(defun %defconfig (place default &key predicate coercer reinitialize 
-				      regen-config documentation tags name db
-				      valid-values-list)
-  (if (listp place) ; if place is a list its an accessor
-      (%defconfig-accessor place :predicate predicate
-				 :coercer coercer
-				 :regen-config regen-config
-				 :name name
-				 :tags tags
-				 :db db
-				 :valid-values-list valid-values-list
-				 :documentation documentation)
-      (%defconfig-parameter place default :predicate predicate
-					  :coercer coercer
-					  :reinitialize reinitialize
-					  :regen-config regen-config
-					  :name name
-					  :tags tags
-					  :db db
-					  :valid-values-list valid-values-list
-					  :documentation documentation)))
+(defmacro defconf-a (place &key predicate coercer db tags documentation regen)
+  (alexandria:with-gensyms (hash obj pred)
+    `(let* ((,pred ,(if predicate predicate 'cl::identity))
+            (,hash (car ,(if db db '*default-db*)))
+            (,obj (gethash ',place ,hash)))
+       (if (or (not ,obj) ,regen)
+           (setf (gethash ',place ,hash)
+                 (make-instance 'accessor-config-info
+                                :name ,(format nil "config-info-~A" place)
+                                :predicate ,pred
+                                :place ',place
+                                :db ,(if db db '*default-db*)
+                                ,@(when documentation
+                                    (list :documentation documentation))
+                                ,@(when coercer
+                                    (list :coercer coercer))
+                                ,@(when tags
+                                    (list :tags tags))))
+           ,obj))))
 
-(defmacro %defconf-vv-intermediary (place default &key predicate coercer name
-                                                    reinitialize regen-config
-                                                    documentation tags db
-                                                    valid-values-list)
-  "wrap around a call to %defconfig - for use by defconfig when generating a 
-lambda out of a typespec "
-  (%defconfig place default :predicate predicate :reinitialize reinitialize
-                            :tags tags :regen-config regen-config :name name
-                            :coercer coercer :documentation documentation
-                            :valid-values-list valid-values-list :db db))
+(defmacro define-accessor-config (place &key validator typespec coercer db tags
+                                          regen-config documentation)
+  (when (and validator typespec)
+    (error "The arguments :VALIDATOR and :TYPESPEC cannot both be supplied"))
+  `(defconf-a ,place
+       ,@(cond (typespec `(:predicate (lambda (x) (typep x ,typespec))))
+	       (validator `(:predicate ,validator)))
+     :coercer ,coercer :db ,db :tags ,tags :documentation ,documentation
+     :regen ,regen-config))
 
-(defmacro defconfig (place default-value &key validator typespec coercer
-                                           reinitialize regen-config name
-                                           documentation tags (db '*default-db*))
+(defmacro define-variable-config (place default-value
+                                  &key validator typespec coercer db tags
+                                    documentation regen-config)
+  (when (and validator typespec)
+    (error "The arguments :VALIDATOR and :TYPESPEC cannot both be supplied"))
+  `(defconf-v ,place ,default-value
+     ,@(cond (typespec `(:predicate (lambda (x) (typep x ,typespec))))
+             (validator `(:predicate ,validator)))
+     :coercer ,coercer :db ,db :tags ,tags
+     :documentation ,documentation :regen ,regen-config))
+
+(defmacro defconfig (place &rest args)
   "Defconfig defines a config-info object and potentially a dynamic variable. 
 
 PLACE can be a symbol or a list. If it is a symbol it is assumed to be a dynamic
@@ -426,56 +380,17 @@ unused.
 
 TAGS are strings that can be used to search for a config-info object. The search 
 functionality is currently only partially implemented. "
-  (when (and validator typespec)
-    (error "A validator and typespec keyargs cannot both be provided to defconfig"))
-  (cond (typespec
-         `(%defconf-vv-intermediary ,place ,default-value
-                                    :predicate (lambda (x)
-                                                 ,(format nil "check if X is of type ~A" typespec)
-                                                 (typep x ,typespec))
-                                    :coercer ,coercer :reinitialize ,reinitialize
-                                    :documentation ,documentation :tags ,tags
-                                    :regen-config ,regen-config :db ,db :name ,name
-                                    :valid-values-list ,typespec))
-	(validator
-         (%defconfig place default-value :predicate validator :coercer coercer
-                                         :reinitialize reinitialize :db db
-                                         :documentation documentation :name name
-                                         :tags tags :regen-config regen-config))
-        
-        (t
-         (%defconfig place default-value
-                     :coercer coercer :reinitialize reinitialize :db db
-                     :documentation documentation :tags tags
-                     :regen-config regen-config :name name))))
-
-(defmacro defconfig-accessor (place &key validator typespec coercer documentation 
-				      tags name regen-config (db '*default-db*))
-  "A version of defconfig for use explicitly with defining accessors. arguments are
-as in defconfig."
-  (cond
-    (typespec
-     `(%defconf-vv-intermediary ,place nil
-				:predicate
-				(lambda (x)
-				  ,(format nil "check if X is of type ~A" typespec)
-				  (typep x ,typespec))
-				:coercer ,coercer
-				:documentation ,documentation :tags ,tags
-				:regen-config ,regen-config :db ,db :name ,name
-				:valid-values-list ,typespec))
-    (validator
-     (%defconfig-accessor place :predicate validator
-				:coercer coercer
-				:regen-config regen-config
-				:name name
-				:tags tags
-				:db db
-				:documentation documentation))
-    (t 
-     (%defconfig-accessor place :coercer coercer
-				:regen-config regen-config
-				:name name
-				:tags tags
-				:db db
-				:documentation documentation))))
+  (if (consp place)
+      `(define-accessor-config ,(car place) ,@args)
+      (destructuring-bind (default &key validator typespec coercer db reinitialize
+                                     tags documentation regen-config)
+          args
+        `(progn
+           (restart-case
+	       (define-variable-config ,place ,default
+		 :validator ,validator :typespec ,typespec :coercer ,coercer
+		 :db ,db :tags ,tags :documentation ,documentation
+		 :regen-config ,regen-config)
+	     (define-variable-regardless () nil))
+           (,(if reinitialize 'defparameter 'defvar)
+            ,place ,default ,@(when documentation (list documentation)))))))
