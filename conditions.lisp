@@ -75,3 +75,16 @@ This will only be signalled when trying to reset a place to its default value.")
              (untrackable-place-error-place condition))))
   (:documentation
    "This condition indicates that a reset was attempted on an accessor place."))
+
+(define-condition setv-wrapped-error (config-error)
+  ((condition :initarg :error :accessor setv-wrapped-error-condition))
+  (:report
+   (lambda (c s)
+     (with-slots (condition) c
+       (format s "WITH-ATOMIC-SETV encountered the error ~S and reset."
+	       (type-of condition)))))
+  (:documentation
+   "This condition is only ever signalled from within WITH-ATOMIC-SETV, and 
+indicates that an error was caught which caused WITH-ATOMIC-SETV to reset all
+places found within its body. It has one slot, CONDITION, which contains the 
+condition that was caught."))

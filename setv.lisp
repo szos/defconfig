@@ -10,19 +10,6 @@ is found error out. :permissive means to setf when a config-info object isnt fou
 :greedy+permissive means to search through all registered databases and use the 
 first object found, but if one isnt found to setf regardless.")
 
-(define-condition setv-wrapped-error (config-error)
-  ((condition :initarg :error :accessor setv-wrapped-error-condition))
-  (:report
-   (lambda (c s)
-     (with-slots (condition) c
-       (format s "WITH-ATOMIC-SETV encountered the error ~S and reset."
-	       (type-of condition)))))
-  (:documentation
-   "This condition is only ever signalled from within WITH-ATOMIC-SETV, and 
-indicates that an error was caught which caused WITH-ATOMIC-SETV to reset all
-places found within its body. It has one slot, CONDITION, which contains the 
-condition that was caught."))
-
 (defun remove-keys (list keys)
   "returns two values - accumulated non-keys and keys "
   (labels ((wanted-key-p (thing)
@@ -221,9 +208,8 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmacro %atomic-setv-reset (accumulator &key (pop t))
-  "this macro resets all encountered places within a call to with-atomic-setv."
+  "this macro resets all encountered places within a call to with-atomic-setv*."
   (declare (special *setv-place-accumulator*))
-  ;; (format t "~&~S~%" *setv-place-accumulator*)
   (let ((place-list (if pop
 			(cdr *setv-place-accumulator*)
 			*setv-place-accumulator*)))
