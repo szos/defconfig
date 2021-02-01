@@ -326,7 +326,7 @@ the def(parameter|var) form."
            ,obj))))
 
 (defmacro define-variable-config (place default-value
-                                  &key validator typespec coercer db tags
+				  &key validator typespec coercer db tags
                                     documentation regen-config)
   "Define a variable config object and place it in DB with the key PLACE."
   (when (and validator typespec)
@@ -344,7 +344,8 @@ PLACE may be either a symbol or a list of length 1. If PLACE is a list, defconfi
 functions as a wrapper around define-accessor-config. If it is a symbol, defconfig 
 defines a variable config as well as a dynamic variable. 
 
-If PLACE is a symbol, the first element of ARGS must be the default value.
+If PLACE is a symbol, and the first element of ARGS is a keyword, and the second 
+element of ARGS is not a keyword, the default value will be the value of PLACE
 
 The following keys are acceptable in ARGS: VALIDATOR, TYPESPEC, COERCER, 
 DOCUMENTATION, DB, TAGS, and REGEN-CONFIG. REINITIALIZE is also acceptable if 
@@ -374,17 +375,29 @@ removed from the plist).
 
 TAGS are strings that can be used to search for a config-info object. The search 
 functionality is currently only partially implemented."
-  (if (consp place)
-      `(define-accessor-config ,(car place) ,@args)
-      (destructuring-bind (default &key validator typespec coercer db reinitialize
-                                     tags documentation regen-config)
-          args
-        `(prog1
-             (restart-case
-                 (define-variable-config ,place ,default
-                   :validator ,validator :typespec ,typespec :coercer ,coercer
-                   :db ,db :tags ,tags :documentation ,documentation
-                   :regen-config ,regen-config)
-               (define-variable-regardless () nil))
-           (,(if reinitialize 'defparameter 'defvar)
-            ,place ,default ,@(when documentation (list documentation)))))))
+  (cond ((consp place)
+	 `(define-accessor-config ,(car place) ,@args))
+	((and (keywordp (car args)) (not (keywordp (cadr args)))) 
+	 ;; then we have no default value and we want to use the current value of
+	 ;; place. 
+	 (destructuring-bind (&key validator typespec coercer db tags
+				reinitialize documentation regen-config)
+	     args
+	   (declare (ignore reinitialize))
+	   `(define-variable-config ,place ,place
+	      :validator ,validator :typespec ,typespec :coercer ,coercer
+	      :db ,db :tags ,tags :documentation ,documentation
+	      :regen-config ,regen-config)))
+	(t
+	 (destructuring-bind (default &key validator typespec coercer db tags
+					reinitialize documentation regen-config)
+	     args
+	   `(prog1
+		(restart-case
+		    (define-variable-config ,place ,default
+		      :validator ,validator :typespec ,typespec :coercer ,coercer
+		      :db ,db :tags ,tags :documentation ,documentation
+		      :regen-config ,regen-config)
+		  (define-variable-regardless () nil))
+	      (,(if reinitialize 'defparameter 'defvar)
+	       ,place ,default ,@(when documentation (list documentation))))))))
