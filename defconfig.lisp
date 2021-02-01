@@ -19,8 +19,8 @@
   ((default-value :initarg :default :reader config-info-default-value
                   :documentation "The default value of this config-info object")
    (prev-value :initarg :previous :reader config-info-previous-value
-	       :accessor config-info-prev-value
-	       :documentation "holds the value previously assigned to the config-info object. initially the same as default-value")))
+               :accessor config-info-prev-value
+               :documentation "holds the value previously assigned to the config-info object. initially the same as default-value")))
 
 (defclass config-info-metadata ()
   ((name :initarg :name :initform "Unnamed config-info object"
@@ -29,7 +29,7 @@
          ;; one cant yet search by name - searching needs to be reworked/rethought
          )
    (tags :initarg :tags :initform '() :reader config-info-tags
-	 :accessor config-info-tag-list
+         :accessor config-info-tag-list
          :documentation "Tags which can be used for finding a config-info object")
    (docstring :initarg :documentation :initform nil
               :reader config-info-documentation
@@ -43,7 +43,7 @@
   ())
 
 (defclass accessor-config-info (config-info-metadata config-info-functions
-				config-info-direct-info)
+                                config-info-direct-info)
   ())
 
 (defmethod print-object ((object config-info) stream)
@@ -111,7 +111,7 @@ should be used."))
   ((place-form :initarg :place :reader invalid-datum-error-place :initform nil)
    (value :initarg :value :reader invalid-datum-error-value :initform nil)
    (config-object :initarg :config-object :initform nil
-		  :reader invalid-datum-error-config-object))
+                  :reader invalid-datum-error-config-object))
   (:report
    (lambda (c s)
      (with-slots (place-form value) c
@@ -137,7 +137,7 @@ should be used."))
    (lambda (c s)
      (with-slots (place-form database) c
        (format s "Unable to find config-info for place ~S in database ~S"
-	       place-form database))))
+               place-form database))))
   (:documentation
    "This condition indicates that PLACE-FORM does not denote a config-info object in DATABASE"))
 
@@ -156,14 +156,14 @@ should be used."))
   (:report
    (lambda (condition stream)
      (format stream "The place ~S does not track default or previous values"
-	     (untrackable-place-error-place condition)))))
+             (untrackable-place-error-place condition)))))
 
 (define-condition no-bound-default-value-error (untrackable-place-error) ()
   (:report
    (lambda (condition stream)
      (format stream
-	     "No default value bound when trying to reset ~S"
-	     (untrackable-place-error-place condition))))
+             "No default value bound when trying to reset ~S"
+             (untrackable-place-error-place condition))))
   (:documentation
    "This condition indicates that the default-value slot of OBJECT is unbound. 
 This will only be signalled when trying to reset a place to its default value."))
@@ -172,7 +172,7 @@ This will only be signalled when trying to reset a place to its default value.")
   (:report
    (lambda (condition stream)
      (format stream "Place ~S is an accessor and is not resettable"
-	     (untrackable-place-error-place condition))))
+             (untrackable-place-error-place condition))))
   (:documentation
    "This condition indicates that a reset was attempted on an accessor place."))
 
@@ -192,9 +192,9 @@ variable lookup. car must be equalp as we compare lists. for internal use only."
 VARNAME is the quoted variable referencing the database, while value is the
 symbol-value of VARNAME. for internal use only"
   (setf *db-plist* (cons key
-			 (cons (cons varname
-				     (symbol-value varname))
-			       *db-plist*))))
+                         (cons (cons varname
+                                     (symbol-value varname))
+                               *db-plist*))))
 
 (defun db-key-exists-p (key)
   "return t/nil if KEY denotes a pre-existing db"
@@ -231,28 +231,28 @@ symbol holding the database associated with KEY"
 *db-plist*. If it does signal an error within the context of a use-value restart
 to allow the user to provide a new value to use instead of KEY"
   (restart-bind ((use-value
-		   (lambda (new-key)
-		     (return-from def-defconfig-db-error-check new-key))
-		   :interactive-function (lambda () (list (read *query-io*)))
-		   :report-function (lambda (stream)
-				      (format stream "Supply a new key to use"))
-		   :test-function (lambda (condition)
-				    (typecase condition
-				      (type-error t)
-				      (database-already-exists-error t)
-				      (t nil)))))
+                   (lambda (new-key)
+                     (return-from def-defconfig-db-error-check new-key))
+                   :interactive-function (lambda () (list (read *query-io*)))
+                   :report-function (lambda (stream)
+                                      (format stream "Supply a new key to use"))
+                   :test-function (lambda (condition)
+                                    (typecase condition
+                                      (type-error t)
+                                      (database-already-exists-error t)
+                                      (t nil)))))
     (cond ((not (keywordp key))
-	   (error 'type-error
-		  :expected-type 'keyword
-		  :datum key
-		  :context (format nil "when defining defconfig database ~S"
-				   var)))
-	  ((db-key-exists-p key)
-	   (error 'database-already-exists-error :key key))
-	  (t key))))
+           (error 'type-error
+                  :expected-type 'keyword
+                  :datum key
+                  :context (format nil "when defining defconfig database ~S"
+                                   var)))
+          ((db-key-exists-p key)
+           (error 'database-already-exists-error :key key))
+          (t key))))
 
 (defmacro define-defconfig-db (var key &key (parameter t)
-					 (doc "A defconfig database"))
+                                         (doc "A defconfig database"))
   "define a dynamic variable name VAR to be a defconfig database accessible by
 passing KEY to the function get-db. If PARAMETER is true, create this var with 
 a defparameter form, otherwise use defvar. DOC is the documentation to pass to 
@@ -260,7 +260,7 @@ the def(parameter|var) form."
   (alexandria:with-gensyms (realkey)
     `(let ((,realkey (def-defconfig-db-error-check ,key ',var)))
        (declare (special ,var)
-		(ignorable ,realkey))
+                (ignorable ,realkey))
        (,(if parameter 'defparameter 'defvar) ,var (make-config-database) ,doc)
        (add-db-to-plist ,realkey ',var))))
 
@@ -268,31 +268,6 @@ the def(parameter|var) form."
   :doc "The default database for defconfig")
 
 ;;; actual defconfig workers and macros.
-
-(defmacro defconf-v (place default &key predicate coercer db tags documentation
-                                     regen)
-  (alexandria:with-gensyms (hold hash validated obj pred)
-    `(let* ((,pred ,(if predicate predicate 'cl::identity))
-            (,hold ,default)
-            (,hash (cdr ,(if db db '*default-db*)))
-            (,validated (funcall ,pred ,hold))
-            (,obj (gethash ',place ,hash)))
-       (unless ,validated (error 'invalid-datum-error :place ',place :value ,hold))
-       (if (or (not ,obj) ,regen)
-           (setf (gethash ',place ,hash)
-                 (make-instance 'config-info
-                                :name ,(format nil "config-info-~A" place)
-                                :predicate ,pred
-                                ,@(when coercer
-                                    `(:coercer ,coercer))
-                                ,@(when documentation
-                                    `(:documentation ,documentation ))
-                                ,@(when tags
-                                    `(:tags ,tags))
-                                :place ',place
-                                :default ,hold
-                                :db ,(if db db '*default-db*)))
-           ,obj))))
 
 (defmacro defconf-a (place &key predicate coercer db tags documentation regen)
   (alexandria:with-gensyms (hash obj pred)
@@ -320,9 +295,34 @@ the def(parameter|var) form."
     (error "The arguments :VALIDATOR and :TYPESPEC cannot both be supplied"))
   `(defconf-a ,place
        ,@(cond (typespec `(:predicate (lambda (x) (typep x ,typespec))))
-	       (validator `(:predicate ,validator)))
+               (validator `(:predicate ,validator)))
      :coercer ,coercer :db ,db :tags ,tags :documentation ,documentation
      :regen ,regen-config))
+
+(defmacro defconf-v (place default &key predicate coercer db tags documentation
+                                     regen)
+  (alexandria:with-gensyms (hold hash validated obj pred)
+    `(let* ((,pred ,(if predicate predicate 'cl::identity))
+            (,hold ,default)
+            (,hash (cdr ,(if db db '*default-db*)))
+            (,validated (funcall ,pred ,hold))
+            (,obj (gethash ',place ,hash)))
+       (unless ,validated (error 'invalid-datum-error :place ',place :value ,hold))
+       (if (or (not ,obj) ,regen)
+           (setf (gethash ',place ,hash)
+                 (make-instance 'config-info
+                                :name ,(format nil "config-info-~A" place)
+                                :predicate ,pred
+                                ,@(when coercer
+                                    `(:coercer ,coercer))
+                                ,@(when documentation
+                                    `(:documentation ,documentation ))
+                                ,@(when tags
+                                    `(:tags ,tags))
+                                :place ',place
+                                :default ,hold
+                                :db ,(if db db '*default-db*)))
+           ,obj))))
 
 (defmacro define-variable-config (place default-value
                                   &key validator typespec coercer db tags
@@ -385,12 +385,12 @@ functionality is currently only partially implemented. "
       (destructuring-bind (default &key validator typespec coercer db reinitialize
                                      tags documentation regen-config)
           args
-        `(progn
-           (restart-case
-	       (define-variable-config ,place ,default
-		 :validator ,validator :typespec ,typespec :coercer ,coercer
-		 :db ,db :tags ,tags :documentation ,documentation
-		 :regen-config ,regen-config)
-	     (define-variable-regardless () nil))
+        `(prog1
+             (restart-case
+                 (define-variable-config ,place ,default
+                   :validator ,validator :typespec ,typespec :coercer ,coercer
+                   :db ,db :tags ,tags :documentation ,documentation
+                   :regen-config ,regen-config)
+               (define-variable-regardless () nil))
            (,(if reinitialize 'defparameter 'defvar)
             ,place ,default ,@(when documentation (list documentation)))))))
