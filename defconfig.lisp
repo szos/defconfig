@@ -1,9 +1,9 @@
-
 (in-package :defconfig)
 
 ;;; Accessor configs
 
-(defmacro defconf-a (place &key predicate coercer db tags documentation regen)
+(defmacro defconf-a (place &key predicate coercer db tags documentation regen
+                             valid-values)
   (alexandria:with-gensyms (hash obj pred)
     `(let* ((,pred ,(if predicate predicate 'cl::identity))
             (,hash (car ,(if db db '*default-db*)))
@@ -15,6 +15,7 @@
                                 :predicate ,pred
                                 :place ',place
                                 :db ,(if db db '*default-db*)
+                                :valid-values ,valid-values
                                 ,@(when documentation
                                     (list :documentation documentation))
                                 ,@(when coercer
@@ -32,19 +33,23 @@
        ,@(cond (typespec `(:predicate (lambda (x) (typep x ,typespec))))
                (validator `(:predicate ,validator)))
      :coercer ,coercer :db ,db :tags ,tags :documentation ,documentation
-     :regen ,regen-config))
+     :regen ,regen-config
+     :valid-values ',(if typespec
+                         `(typespec ,typespec)
+                         `(function ,validator))))
 
 ;;; Variable configs
 
 (defmacro defconf-v (place default &key predicate coercer db tags documentation
-                                     regen)
+                                     regen valid-values)
   (alexandria:with-gensyms (hold hash validated obj pred)
     `(let* ((,pred ,(if predicate predicate 'cl::identity))
             (,hold ,default)
             (,hash (cdr ,(if db db '*default-db*)))
             (,validated (funcall ,pred ,hold))
             (,obj (gethash ',place ,hash)))
-       (unless ,validated (error 'invalid-datum-error :place ',place :value ,hold))
+       (unless ,validated
+         (error 'invalid-datum-error :place ',place :value ,hold))
        (if (or (not ,obj) ,regen)
            (setf (gethash ',place ,hash)
                  (make-instance 'config-info
@@ -58,7 +63,8 @@
                                     `(:tags ,tags))
                                 :place ',place
                                 :default ,hold
-                                :db ,(if db db '*default-db*)))
+                                :db ,(if db db '*default-db*)
+                                :valid-values ,valid-values))
            ,obj))))
 
 (defmacro define-variable-config (place default-value
@@ -71,7 +77,10 @@
      ,@(cond (typespec `(:predicate (lambda (x) (typep x ,typespec))))
              (validator `(:predicate ,validator)))
      :coercer ,coercer :db ,db :tags ,tags
-     :documentation ,documentation :regen ,regen-config))
+     :documentation ,documentation :regen ,regen-config
+     :valid-values ',(if typespec
+                         `(typespec ,typespec)
+                         `(function ,validator))))
 
 (defmacro defconfig (place &rest args)
   "Defconfig defines a config-info object and potentially a dynamic variable. 
