@@ -38,15 +38,15 @@
                  :reader config-info-valid-values-description
                  :documentation "An explanation of the valid values and predicate function")))
 
-(defclass config-info (config-info-metadata config-info-functions
-                       config-info-direct-info config-info-values)
+(defclass %config-info (config-info-metadata config-info-functions
+                        config-info-direct-info)
   ())
 
-(defclass accessor-config-info (config-info-metadata config-info-functions
-                                config-info-direct-info)
-  ())
+(defclass config-info (%config-info config-info-values) ())
 
-(defmethod print-object ((object config-info) stream)
+(defclass accessor-config-info (%config-info) ())
+
+(defmethod print-object ((object %config-info) stream)
   (print-unreadable-object (object stream)
     (format stream "CONFIG-INFO ~A" (config-info-place object))))
 
@@ -62,39 +62,45 @@
     (unless (stringp valid-values)
       (cond ((eql :unset valid-values)
              (setf valid-values 
-                   (concatenate 'string
-                                (format nil "Valid values are tested using ~S"
-                                        (cond ((functionp predicate)
-                                               (let ((fname (nth-value 2 (function-lambda-expression
-                                                                          predicate))))
-                                                 (cond ((symbolp fname) fname)
-                                                       ((listp fname) (list (car fname) (cadr fname)))
-                                                       (t 'unknown))))
-                                              ((symbolp predicate) predicate)
-                                              (t 'unknown-predicate)))
-                                (if coercer
-                                    (format nil ". Coercion is attempted on invalid values using ~S."
-                                            (cond ((functionp coercer)
-                                                   (let ((fname (nth-value 2 (function-lambda-expression
-                                                                              coercer))))
-                                                     (cond ((symbolp fname) fname)
-                                                           ((listp fname) (list (car fname) (cadr fname)))
-                                                           (t 'unknown))))
-                                                  ((symbolp coercer) coercer)
-                                                  (t 'unknown-coercer)))
-                                    "."))))
+                   (concatenate
+                    'string
+                    (format nil "Valid values are tested using ~S"
+                            (cond ((functionp predicate)
+                                   (let ((fname
+                                           (nth-value 2
+                                                      (function-lambda-expression
+                                                       predicate))))
+                                     (cond ((symbolp fname) fname)
+                                           ((listp fname) (list (car fname)
+                                                                (cadr fname)))
+                                           (t 'unknown))))
+                                  ((symbolp predicate) predicate)
+                                  (t 'unknown-predicate)))
+                    (if coercer
+                        (format nil ". Coercion is attempted on invalid values using ~S."
+                                (cond ((functionp coercer)
+                                       (let ((fname (nth-value 2 (function-lambda-expression
+                                                                  coercer))))
+                                         (cond ((symbolp fname) fname)
+                                               ((listp fname) (list (car fname)
+                                                                    (cadr fname)))
+                                               (t 'unknown))))
+                                      ((symbolp coercer) coercer)
+                                      (t 'unknown-coercer)))
+                        "."))))
             (t
              (setf valid-values
-                   (concatenate 'string
-                                (format nil "Valid values must conform to type specifier ~S" valid-values)
-                                (if coercer
-                                    (format nil ". Coercion is attempted on invalid values using ~S."
-                                            (cond ((functionp coercer)
-                                                   (let ((fname (nth-value 2 (function-lambda-expression
-                                                                              coercer))))
-                                                     (cond ((symbolp fname) fname)
-                                                           ((listp fname) (list (car fname) (cadr fname)))
-                                                           (t 'unknown))))
-                                                  ((symbolp coercer) coercer)
-                                                  (t 'unknown-coercer)))
-                                    "."))))))))
+                   (concatenate
+                    'string
+                    (format nil "Valid values must conform to type specifier ~S" valid-values)
+                    (if coercer
+                        (format nil ". Coercion is attempted on invalid values using ~S."
+                                (cond ((functionp coercer)
+                                       (let ((fname (nth-value 2 (function-lambda-expression
+                                                                  coercer))))
+                                         (cond ((symbolp fname) fname)
+                                               ((listp fname) (list (car fname) (cadr fname)))
+                                               (t 'unknown))))
+                                      ((symbolp coercer) coercer)
+                                      (t 'unknown-coercer)))
+                        "."))))))))
