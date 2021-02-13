@@ -1,6 +1,8 @@
 
 (in-package :defconfig)
 
+;;; Accessor configs
+
 (defmacro defconf-a (place &key predicate coercer db tags documentation regen)
   (alexandria:with-gensyms (hash obj pred)
     `(let* ((,pred ,(if predicate predicate 'cl::identity))
@@ -31,6 +33,8 @@
                (validator `(:predicate ,validator)))
      :coercer ,coercer :db ,db :tags ,tags :documentation ,documentation
      :regen ,regen-config))
+
+;;; Variable configs
 
 (defmacro defconf-v (place default &key predicate coercer db tags documentation
                                      regen)
@@ -73,10 +77,10 @@
   "Defconfig defines a config-info object and potentially a dynamic variable. 
 
 PLACE may be either a symbol or a list of length 1. If PLACE is a list, defconfig
-functions as a wrapper around define-accessor-config. If it is a symbol, defconfig 
-defines a variable config as well as a dynamic variable. Additionally, if the first
-element of ARGS is a keyword and the second element of ARGS is not a keyword, the
-default value will be the value of PLACE. 
+functions as a wrapper around define-accessor-config. If it is a symbol,
+defconfig defines a variable config as well as a dynamic variable. Additionally,
+if the first element of ARGS is a keyword and the second element of ARGS is not
+a keyword, the default value will be the value of PLACE. 
 
 The following keys are acceptable in ARGS: VALIDATOR, TYPESPEC, COERCER, 
 DOCUMENTATION, DB, TAGS, and REGEN-CONFIG. REINITIALIZE is also acceptable if 
@@ -99,10 +103,10 @@ object regardless of whether PLACE is a symbol or a list.
 
 DB is the database to place the generated config-info object into, and defaults
 to *default-db*. Defconfig does not check if DB is in the plist of databases
-before placing the config-info object into DB. It is assumed that if a DB has been
-removed from the database plist the user has a good understanding of what they
-are doing and is managing the database themselves. (databases must be manually
-removed from the plist). 
+before placing the config-info object into DB. It is assumed that if a DB has 
+been removed from the database plist the user has a good understanding of what 
+they are doing and is managing the database themselves. (databases must be 
+manually removed from the plist). 
 
 TAGS are strings that can be used to search for a config-info object. The search 
 functionality is currently only partially implemented."
