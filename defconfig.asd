@@ -8,14 +8,14 @@
   :serial t
   :depends-on (#:alexandria #:trivial-cltl2)
   :components ((:file "package")
+	       (:file "database")
 	       (:file "classes")
 	       (:file "conditions")
-	       (:file "database")
-               (:file "defconfig")
+	       (:file "defconfig")
                (:file "setv")
                (:file "access")))
 
-(asdf:defsystem #:defconfig.test
+(asdf:defsystem #:defconfig/tests
   :description "test suite for defconfig"
   :author "Your Name <your.name@example.com>"
   :license "GPLv3"

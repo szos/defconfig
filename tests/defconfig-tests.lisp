@@ -1,7 +1,4 @@
-(unless (find-package :fiveam)
-  (error "Please load fiveam to run the test suite"))
-
-(defpackage #:defconfig.test
+(defpackage #:defconfig/tests
   (:use #:cl)
   ;; (:local-nicknames (#:am #:fiveam))
   (:import-from #:defconfig #:defconfig #:setv #:with-atomic-setv #:setv-atomic
@@ -10,7 +7,7 @@
 		#:define-accessor-config)
   (:import-from #:fiveam #:is #:signals))
 
-(in-package :defconfig.test)
+(in-package :defconfig/tests)
 
 (defconfig:delete-db :testing t)
 
@@ -316,8 +313,8 @@
     (with-atomic-setv ()
       (setv (testing-class-slot-1 *testing-class*) 8)
       (error "foo")))
-  (is (= (testing-class-slot-1 *testing-class*) 8))
-  ;; this ~is~ was the test that is failing... 
+  (is (= (testing-class-slot-1 *testing-class*) 4))
+  ;; this was the test that is failing... 
 
   ;; ;; test with compiler-let w-a-s*
   (setf (testing-class-slot-1 *testing-class*) 0)

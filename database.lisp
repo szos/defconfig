@@ -1,4 +1,3 @@
-
 (in-package :defconfig)
 
 (defun defconfig-database-p (db)
@@ -11,7 +10,8 @@
 (deftype defconfig-database ()
   `(satisfies defconfig-database-p))
 
-(defvar *db-plist* '() "A plist holding all databases for defconfig")
+(defvar *db-plist* '()
+  "A plist holding all databases for defconfig")
 
 (defun make-config-database ()
   "Return a cons of two hash tables"
@@ -96,4 +96,3 @@ the def(parameter|var) form."
 
 (define-defconfig-db *default-db* :default
   :doc "The default database for defconfig")
-
