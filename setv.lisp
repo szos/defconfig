@@ -1,7 +1,7 @@
 (in-package :defconfig)
 
-(defconfig *setv-permissiveness* :strict
-  :typespec '(member :strict :greedy :permissive :greedy+permissive)
+(defconfig *setv-permissiveness* :STRICT
+  :typespec '(member :STRICT :GREEDY :PERMISSIVE :GREEDY+PERMISSIVE)
   :tags '("setv" "permissiveness" "allow other values")
   :documentation "Determines how setv will act when no config-info object is 
 found. :STRICT means to error out. :GREEDY means to search through all registered 
@@ -326,6 +326,9 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 			     (abort-and-reset ()
 			       :report "Exit WITH-ATOMIC-SETV and reset everything"
 			       (%runtime-atomic-setv-reset ,accumulator)
+			       (return-from ,outer-block nil))
+			     (abort-without-resetting ()
+			       :report "Exit WITH-ATOMIC-SETV without resetting"
 			       (return-from ,outer-block nil)))
 			 (,handle-conditions (,inner-c)
 			   (%runtime-atomic-setv-reset ,accumulator)
@@ -341,7 +344,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 		  (warn ,c)))
 	       ,c))))))
 
-(defmacro with-atomic-setv ((&key (re-error t) handle-conditions)
+(defmacro with-atomic-setv ((&key (errorp t) handle-conditions)
 			    &body body)
   "This macro, upon encountering an error, resets all places encountered within 
 calls to setv to be reset to the value they held before the call to 
@@ -349,6 +352,6 @@ with-atomic-setv. Which errors to reset upon can be controlled with
 HANDLE-CONDITIONS. If it is nil, it defaults to 'error. If a handled condition is 
 encountered, it will be wrapped in SETV-WRAPPED-ERROR, unless RE-ERROR is nil, in 
 which case a warning will be generated and the condition will be returned. "
-  `(with-runtime-atomic-setv (:re-error ,re-error
+  `(with-runtime-atomic-setv (:re-error ,errorp
 			      :handle-conditions ,(or handle-conditions 'error))
      ,@body))
