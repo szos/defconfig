@@ -25,7 +25,7 @@ install:
 # determining whether a test suite fails or succeeds.
 script:
   - cl -e '(ql:quickload :defconfig)
-           (ql:quickload :defconfig.test)'
+           (ql:quickload :defconfig/tests)'
        -e '(in-package :common-lisp-user)'
        -e '(setf *debugger-hook*
                  (function (lambda (mysym h)

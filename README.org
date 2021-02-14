@@ -9,7 +9,7 @@
   If you encounter something that doesnt work as you think it should, please open an issue here. If you describe the exhibited behavior and the expected behavior, it will be added to the test suite and fixed (hopefully quickly). 
 
 * Usage
-  The basic usage of this system is through the macros ~defconfig~, ~setv~ and ~with-atomic-setv~. The macro ~defconfig~ defines a configuration object which is used to check values against a predicate. The macro ~setv~ uses these configuration objects to validate values before calling setf. An error is signalled if A) the value is invalid, B) the coerced value is invalid (when applicable) or C) the place one is trying to set doesnt have a configuration object. For A and B, restarts are put into place to ignore the invalidity and set regardless. The macro ~with-atomic-setv~ collects all places set with ~setv~ in its body and if an error is signalled resets all changed values back to their original value before the ~with-atomic-setv~ form. 
+  The basic usage of this system is through the macros ~defconfig~, ~setv~ and ~with-atomic-setv~. The macro ~defconfig~ defines a configuration object which is used to check values against a predicate. The macro ~setv~ uses these configuration objects to validate values before calling setf. An error is signalled if A) the value is invalid, B) the coerced value is invalid (when applicable) or C) the place one is trying to set doesnt have a configuration object. For A and B, restarts are put into place to ignore the invalidity and set regardless. The macro ~with-atomic-setv~ collects all places set with ~setv~ in its body and if an error is signalled resets all changed values back to their original value held before the ~with-atomic-setv~ form. 
 
 * Regarding This Readme
   This readme is not a complete explanation of defconfig. Please see =package.lisp= for a list of exported symbols and see the symbol docstrings for a better idea of what it does. Most (exported) symbols are well documented, slots have decent documentation describing their purpose/use, and errors should be grokkable from their ~:report~ functions.
@@ -111,12 +111,42 @@
    - ~:permissive~ - When a configuration object isnt found, set the variable to the value.
    - ~:greedy+permissive~ - When a configuration object isnt found, search for one as per ~:greedy~. If one still isnt found, set the variable to the value. 
      
-* A Note About Reset-Place
-  The macro ~reset-place~ (and by extension the function ~reset-computed-place~) could be a little confusing. It takes a place, and resets it to its default value. However if ~previous-value~ is true, then it resets to the previous value instead. Before setting, it checks if the current value is eql to the value to reset to (this can be controlled with ~already-reset-test~) and if it is it isnt reset as it would have no effect. If it isnt, we both reset the place, AND set the ~previous-value~ slot to the (now no longer) current value. thusly, if the default value is a, previous value is b, and current value is c, and we reset to the default value, we will have a default of a, previous of c, and current of a. If we had instead reset to the previous value, we effectively swap the previous and current values. 
+* Quirks and Oddities
+  There are a few places in ~ðefconfig~ that arent naturally intuitive. 
+** ~With-atomic-setv~
+   The star variant of ~with-atomic-setv~ has a quirk in that places get evaluated multiple times if one resets, while both variants evaluate accessors multiple times. Some code to demonstrate:
+#+BEGIN_SRC lisp
+  (with-atomic-setv ()
+    (setv (accessor *myvar*) 0)
+    …)
+
+  (with-atomic-setv* ()
+    (setv (accessor *myvar*) 0)
+    …)
+#+END_SRC
+   Both of these will evaluate of these will evaluate ~(accessor *myvar*)~ multiple times depending on whether it gets reset or not. 
+#+BEGIN_SRC lisp
+  (with-atomic-setv ()
+    (setv (accessor (progn (incf *counter*)
+			   *myvar*))
+	  0)
+    …)
+
+  (with-atomic-setv* ()
+    (setv (accessor (progn (incf *counter*)
+			   *myvar*))
+	  0)
+    …)
+#+END_SRC
+   In the above example, the first of these will evaluate ~(progn (incf *counter*) *myvar*)~ once and only once, while the second will evaluate ~(progn (incf *counter*) *myvar*)~ once if there is no reset, but twice if there is a reset.
+   Both version of this macro will evaluate the accessor multiple times. 
+
+** A Note About Reset-Place
+   The macro ~reset-place~ (and by extension the function ~reset-computed-place~) could be a little confusing. It takes a place, and resets it to its default value. However if ~previous-value~ is true, then it resets to the previous value instead. Before setting, it checks if the current value is eql to the value to reset to (this can be controlled with ~already-reset-test~) and if it is it isnt reset as it would have no effect. If it isnt, we both reset the place, AND set the ~previous-value~ slot to the (now no longer) current value. thusly, if the default value is a, previous value is b, and current value is c, and we reset to the default value, we will have a default of a, previous of c, and current of a. If we had instead reset to the previous value, we effectively swap the previous and current values. 
   Furthermore, we cannot reset accessor places.
 
 * Macros
-** Define-variable-config 
+** ~Define-variable-config~
    *define-variable-config* /place default-value &key validator typespec coercer documentation db tags regen-config => config-info/
 
    The ~define-variable-config~ macro generates a config info object and registers it in a database. 
@@ -133,7 +163,7 @@
      - /regen-config/ - when true, regenerate the configuration object regarless of its pre-existence
      - /db/ - the database to register /config-info/ in.
      - /tags/ - a set of tags used when searching for a configuration object
-** Define-accessor-config 
+** ~Define-accessor-config~ 
    *define-accessor-config* /place &key validator typespec coercer documentation db tags regen-config => config-info/
 
    The ~define-accessor-config~ macro generates a config info object and registers it in a database. 
@@ -148,7 +178,7 @@
      - /regen-config/ - when true, regenerate the configuration object regarless of its pre-existence
      - /db/ - the database to register /config-info/ in.
      - /tags/ - a set of tags used when searching for a configuration object
-** Defconfig
+** ~Defconfig~
    *defconfig* /place &rest args => config-info/
 
    The ~defconfig~ macro wraps around the ~define-*-config~ macros. When /place/ is a symbol, it expands into a call to ~define-variable-config~, as well as a call to either ~defparameter~ or ~defvar~. When /place/ is a symbol one additional key argument is accepted: ~:reinitialize~. When true, a ~defparameter~ form is generated. 
@@ -158,19 +188,19 @@
      - May modify /place/
      - May cause /place/ to be defined as a dynamic variable
      - Any side effects of running /validator/
-** Setv
+** ~Setv~
    The ~setv~ macro expands into multiple calls to ~%setv~, which validates a value before setting the place to it. It functions the same as ~setf~, but accepts the keyword ~:db~ to specify a database other than the default one provided by ~defconfig~. Returns the final value. 
    - *Side Effects*:
      - Any side effects of evaluating a value. All values are evaluated sequentially. If a value is not valid, no further values will be processed.
      - Causes /place/ to be set to /value/ 
-** With-atomic-setv/*
-   There are two versions of this macro:  ~with-atomic-setv~ and ~with-atomic-setv*~. The former tracks places and values purely at runtime, while the latter tracks places at macroexpansion time and values at runtime. The former cannot be used with accessors, while the latter can. The reason for their twin existence is that ~with-atomic-setv*~ will churn through every iteration of a places value; if you setv a variable five times, and on the sixth an error is signalled, the variable will be reset 5 times, eventually reaching its original value. This can get expensive, and due to the inability to macroexpand with ~compiler-let~ I am still unsure if there are corner cases where variables wont be reset propperly. Contrasted with the non-star variant, where it shall reset accordingly, and do so in a manner that it only resets once. 
+** ~With-atomic-setv/*~
+   There are two versions of this macro:  ~with-atomic-setv~ and ~with-atomic-setv*~. The former tracks places and values purely at runtime, while the latter tracks places at macroexpansion time and values at runtime. 
 
-   The ~with-atomic-setv~ macro resets any places set using ~setv~ to the value it held before the call to ~with-atomic-setv~, when a condition is encountered. One can specify whether to re-signal the condition or not with ~:re-error~. If ~:re-error~ is nil a warning will be issued on encountering a handled condition and the condition will be returned. One can specify which conditions to handle with ~:handle-conditions~, which accepts an (unquoted) type specifier. One cannot handle no conditions (that defeats the purpose of ~with-atomic-setv~). 
+   The ~with-atomic-setv~ macro resets any places set using ~setv~ to the value it held before the call to ~with-atomic-setv~, when a condition is encountered. One can specify whether to re-signal the condition or not with ~:errorp~. If ~:errorp~ is nil a warning will be issued on encountering a handled condition and the condition will be returned. One can specify which conditions to handle with ~:handle-conditions~, which accepts an (unquoted) type specifier. One can handle no conditions by passing ~(or)~, though that defeats the purpose of ~with-atomic-setv~. 
    
    An example: 
 #+BEGIN_SRC lisp
-  (with-atomic-setv (:re-error nil)
+  (with-atomic-setv (:errorp nil)
     (error "hello")
     "return string")
 
@@ -179,20 +209,20 @@
   and reset.
   => #<SIMPLE-ERROR "hello" {address}>
 
-  (with-atomic-setv (:re-error nil :handle-conditions config-error)
+  (with-atomic-setv (:errorp nil :handle-conditions config-error)
     (error "hello")
     "return string")
 
   drops into the debugger
 
-  (with-atomic-setv (:re-error nil)
+  (with-atomic-setv (:errorp nil)
     (warn "hello")
     "return string")
 
   WARNING: hello
   => "return string"
 
-  (with-atomic-setv (:re-error nil :handle-conditions (or error warning))
+  (with-atomic-setv (:errorp nil :handle-conditions (or error warning))
     (warn "hello")
     "return string")
 

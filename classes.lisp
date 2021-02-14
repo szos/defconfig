@@ -1,5 +1,42 @@
-
 (in-package :defconfig)
+
+(defun generate-valid-values-predicate-string (&key typespec predicate)
+  (cond (typespec 
+         (format nil "Valid values must conform to the typespec ~S"
+                 typespec))
+        (t
+         (format nil "Valid values must are tested using ~S"
+                 (cond ((symbolp predicate) predicate)
+                       ((functionp predicate)
+                        (let ((fname (nth-value 2 (function-lambda-expression
+                                                   predicate))))
+                          (cond ((symbolp fname) fname)
+                                ((listp fname) (list (car fname)
+                                                     (cadr fname)))
+                                (t 'unknown-function)))))))))
+
+(defun generate-valid-values-coercer-string (&optional coercer)
+  (if coercer
+      (format nil ". Coercion is attempted with the function ~S."
+              (cond ((symbolp coercer) coercer)
+                    ((functionp coercer)
+                     (let ((fname (nth-value 2 (function-lambda-expression
+                                                coercer))))
+                       (cond ((symbolp fname) fname)
+                             ((listp fname) (list (car fname)
+                                                  (cadr fname)))
+                             (t 'unknown-function))))))
+      "."))
+
+(defun generate-vv-string (spec obj)
+  (destructuring-bind (typespec-or-fn-indicator typespec-or-fn)
+      spec
+    (concatenate
+     'string
+     (if (eql typespec-or-fn-indicator 'typespec)
+         (generate-valid-values-predicate-string :typespec typespec-or-fn)
+         (generate-valid-values-predicate-string :predicate typespec-or-fn))
+     (generate-valid-values-coercer-string (config-info-coercer obj)))))
 
 (defclass config-info-functions ()
   ((predicate :initarg :predicate :initform #'identity
@@ -34,17 +71,17 @@
    (docstring :initarg :documentation :initform nil
               :reader config-info-documentation
               :documentation "The docstring for the place being governed. if a variable it is the same as the variables docstring")
-   (valid-values :initarg :valid-values :initform :unset
+   (valid-values :initarg :valid-values
                  :reader config-info-valid-values-description
                  :documentation "An explanation of the valid values and predicate function")))
 
-(defclass config-info (config-info-metadata config-info-functions
-                       config-info-direct-info config-info-values)
+(defclass %config-info (config-info-metadata config-info-functions
+                        config-info-direct-info)
   ())
 
-(defclass accessor-config-info (config-info-metadata config-info-functions
-                                config-info-direct-info)
-  ())
+(defclass config-info (%config-info config-info-values) ())
+
+(defclass accessor-config-info (%config-info) ())
 
 (defmethod print-object ((object config-info) stream)
   (print-unreadable-object (object stream)
@@ -54,47 +91,18 @@
   (print-unreadable-object (object stream)
     (format stream "ACCESSOR-CONFIG-INFO ~A" (config-info-place object))))
 
-;;; turn valid-values into a string, unless a custom string is provided. this should be moved into the generation fn
+(defun slot-bound-p (obj slot)
+  (slot-boundp obj slot))
+
+(defmethod initialize-instance :after ((obj %config-info) &key)
+  (cond ((slot-bound-p obj 'valid-values)
+         (unless (typep (slot-value obj 'valid-values) 'string)
+           (setf (slot-value obj 'valid-values)
+                 (generate-vv-string (slot-value obj 'valid-values) obj))))
+        (t (setf (slot-value obj 'valid-values)
+                 "Unspecified"))))
+
 (defmethod initialize-instance :after ((obj config-info) &key)
-  (with-slots (valid-values predicate coercer) obj
-    (unless (slot-boundp obj 'prev-value)
-      (setf (slot-value obj 'prev-value) (slot-value obj 'default-value)))
-    (unless (stringp valid-values)
-      (cond ((eql :unset valid-values)
-             (setf valid-values 
-                   (concatenate 'string
-                                (format nil "Valid values are tested using ~S"
-                                        (cond ((functionp predicate)
-                                               (let ((fname (nth-value 2 (function-lambda-expression
-                                                                          predicate))))
-                                                 (cond ((symbolp fname) fname)
-                                                       ((listp fname) (list (car fname) (cadr fname)))
-                                                       (t 'unknown))))
-                                              ((symbolp predicate) predicate)
-                                              (t 'unknown-predicate)))
-                                (if coercer
-                                    (format nil ". Coercion is attempted on invalid values using ~S."
-                                            (cond ((functionp coercer)
-                                                   (let ((fname (nth-value 2 (function-lambda-expression
-                                                                              coercer))))
-                                                     (cond ((symbolp fname) fname)
-                                                           ((listp fname) (list (car fname) (cadr fname)))
-                                                           (t 'unknown))))
-                                                  ((symbolp coercer) coercer)
-                                                  (t 'unknown-coercer)))
-                                    "."))))
-            (t
-             (setf valid-values
-                   (concatenate 'string
-                                (format nil "Valid values must conform to type specifier ~S" valid-values)
-                                (if coercer
-                                    (format nil ". Coercion is attempted on invalid values using ~S."
-                                            (cond ((functionp coercer)
-                                                   (let ((fname (nth-value 2 (function-lambda-expression
-                                                                              coercer))))
-                                                     (cond ((symbolp fname) fname)
-                                                           ((listp fname) (list (car fname) (cadr fname)))
-                                                           (t 'unknown))))
-                                                  ((symbolp coercer) coercer)
-                                                  (t 'unknown-coercer)))
-                                    "."))))))))
+  (unless (slot-boundp obj 'prev-value)
+    (setf (slot-value obj 'prev-value) (slot-value obj 'default-value))))
+

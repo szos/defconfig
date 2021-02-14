@@ -1,7 +1,9 @@
-
 (in-package :defconfig)
 
-(defmacro defconf-a (place &key predicate coercer db tags documentation regen)
+;;; Accessor configs
+
+(defmacro defconf-a (place &key predicate coercer db tags documentation regen
+                             valid-values)
   (alexandria:with-gensyms (hash obj pred)
     `(let* ((,pred ,(if predicate predicate 'cl::identity))
             (,hash (car ,(if db db '*default-db*)))
@@ -13,6 +15,7 @@
                                 :predicate ,pred
                                 :place ',place
                                 :db ,(if db db '*default-db*)
+                                :valid-values ,valid-values
                                 ,@(when documentation
                                     (list :documentation documentation))
                                 ,@(when coercer
@@ -30,17 +33,23 @@
        ,@(cond (typespec `(:predicate (lambda (x) (typep x ,typespec))))
                (validator `(:predicate ,validator)))
      :coercer ,coercer :db ,db :tags ,tags :documentation ,documentation
-     :regen ,regen-config))
+     :regen ,regen-config
+     :valid-values ',(if typespec
+                         `(typespec ,typespec)
+                         `(function ,validator))))
+
+;;; Variable configs
 
 (defmacro defconf-v (place default &key predicate coercer db tags documentation
-                                     regen)
+                                     regen valid-values)
   (alexandria:with-gensyms (hold hash validated obj pred)
     `(let* ((,pred ,(if predicate predicate 'cl::identity))
             (,hold ,default)
             (,hash (cdr ,(if db db '*default-db*)))
             (,validated (funcall ,pred ,hold))
             (,obj (gethash ',place ,hash)))
-       (unless ,validated (error 'invalid-datum-error :place ',place :value ,hold))
+       (unless ,validated
+         (error 'invalid-datum-error :place ',place :value ,hold))
        (if (or (not ,obj) ,regen)
            (setf (gethash ',place ,hash)
                  (make-instance 'config-info
@@ -54,7 +63,8 @@
                                     `(:tags ,tags))
                                 :place ',place
                                 :default ,hold
-                                :db ,(if db db '*default-db*)))
+                                :db ,(if db db '*default-db*)
+                                :valid-values ,valid-values))
            ,obj))))
 
 (defmacro define-variable-config (place default-value
@@ -67,16 +77,19 @@
      ,@(cond (typespec `(:predicate (lambda (x) (typep x ,typespec))))
              (validator `(:predicate ,validator)))
      :coercer ,coercer :db ,db :tags ,tags
-     :documentation ,documentation :regen ,regen-config))
+     :documentation ,documentation :regen ,regen-config
+     :valid-values ',(if typespec
+                         `(typespec ,typespec)
+                         `(function ,validator))))
 
 (defmacro defconfig (place &rest args)
   "Defconfig defines a config-info object and potentially a dynamic variable. 
 
 PLACE may be either a symbol or a list of length 1. If PLACE is a list, defconfig
-functions as a wrapper around define-accessor-config. If it is a symbol, defconfig 
-defines a variable config as well as a dynamic variable. Additionally, if the first
-element of ARGS is a keyword and the second element of ARGS is not a keyword, the
-default value will be the value of PLACE. 
+functions as a wrapper around define-accessor-config. If it is a symbol,
+defconfig defines a variable config as well as a dynamic variable. Additionally,
+if the first element of ARGS is a keyword and the second element of ARGS is not
+a keyword, the default value will be the value of PLACE. 
 
 The following keys are acceptable in ARGS: VALIDATOR, TYPESPEC, COERCER, 
 DOCUMENTATION, DB, TAGS, and REGEN-CONFIG. REINITIALIZE is also acceptable if 
@@ -99,10 +112,10 @@ object regardless of whether PLACE is a symbol or a list.
 
 DB is the database to place the generated config-info object into, and defaults
 to *default-db*. Defconfig does not check if DB is in the plist of databases
-before placing the config-info object into DB. It is assumed that if a DB has been
-removed from the database plist the user has a good understanding of what they
-are doing and is managing the database themselves. (databases must be manually
-removed from the plist). 
+before placing the config-info object into DB. It is assumed that if a DB has 
+been removed from the database plist the user has a good understanding of what 
+they are doing and is managing the database themselves. (databases must be 
+manually removed from the plist). 
 
 TAGS are strings that can be used to search for a config-info object. The search 
 functionality is currently only partially implemented."

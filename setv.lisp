@@ -1,14 +1,14 @@
 (in-package :defconfig)
 
-(defconfig *setv-permissiveness* :strict
-  :typespec '(member :strict :greedy :permissive :greedy+permissive)
+(defconfig *setv-permissiveness* :STRICT
+  :typespec '(member :STRICT :GREEDY :PERMISSIVE :GREEDY+PERMISSIVE)
   :tags '("setv" "permissiveness" "allow other values")
-  :documentation "Determines how setv will act when no config-info object is found.
-:strict means to error out. :greedy means to search through all registered 
+  :documentation "Determines how setv will act when no config-info object is 
+found. :STRICT means to error out. :GREEDY means to search through all registered 
 databases for a config-info object and use the first one that is found, or if none
-is found error out. :permissive means to setf when a config-info object isnt found.
-:greedy+permissive means to search through all registered databases and use the 
-first object found, but if one isnt found to setf regardless.")
+is found error out. :PERMISSIVE means to setf when a config-info object isnt 
+found. :GREEDY+PERMISSIVE means to search through all registered databases and 
+use the first object found, but if one isnt found to setf regardless.")
 
 (defun remove-keys (list keys)
   "returns two values - accumulated non-keys and keys "
@@ -251,7 +251,10 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 						 ,',handle-conditions
 						 ,',accumulator
 						 ,@,args)))
-		       (handler-case (progn ,@body)
+		       (handler-case
+			   ;; (restart-case
+			   (progn ,@body)
+			   ;;   (with-atomic-setv-reset () ))
 			 (,handle-conditions (,inner-c)
 			   (%atomic-setv-reset ,accumulator :pop nil)
 			   (return-from ,block-name ,inner-c))))))))
@@ -268,70 +271,67 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 ;;; Runtime with-atomic-setv ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmacro %runtime-atomic-setv-reset (&key pop)
+(defmacro %runtime-atomic-setv-reset (accumulator &key pop)
   `(let ((already-reset nil))
-     (loop for (var val) in (reverse
-			     ,(if pop
-				  '(cdr with-atomic-setv-accumulator)
-				  'with-atomic-setv-accumulator))
+     (loop for (var val varplace) in (reverse (,(if pop 'cdr 'identity)
+					       ,accumulator))
 	   unless (member var already-reset :test 'equalp)
-	     do (setf (symbol-value var) val)
+	     do (if (symbolp var)
+		    (setf (symbol-value var) val)
+		    (funcall (fdefinition `(setf ,(car var))) val varplace))
 		(push var already-reset))))
 
-(defmacro %runtime-setv-with-reset (block-name reset-errors place value db)
-  (alexandria:with-gensyms (c)
-    `(progn
-       (push (list ',place ,place)
-	     with-atomic-setv-accumulator)
-       (handler-case (%%setv ,place ,value ,db)
-	 (,reset-errors (,c) ;; (or ,@reset-errors) (,c)
-	   (%runtime-atomic-setv-reset :pop t)
+(defmacro %runtime-setv-with-reset (ac block-name reset-errors place value db)
+  (alexandria:with-gensyms (c acplace)
+    `(let ((,acplace ,(if (listp place)
+			(cadr place)
+			place)))
+       (push (list ',place
+		   (funcall ',(if (listp place) 
+				  (car place)
+				  'identity)
+			    ,acplace)
+		   ,acplace)
+	     ,ac)
+       (handler-case (%%setv ,(if (listp place)
+				  `(,(car place) ,acplace)
+				  place)
+			     ,value ,db)
+	 (,reset-errors (,c) 
+	   (%runtime-atomic-setv-reset ,ac :pop t)
 	   (return-from ,block-name ,c))))))
 
-(defmacro %runtime-atomic-setv (block-name reset-errors &rest args)
+(defmacro %runtime-atomic-setv (accumulator block-name reset-errors &rest args)
   (destructuring-keys (pairs (:db '*default-db*)) args
     `(progn
        ,@(loop for (p v) on pairs by 'cddr
-	       collect `(%runtime-setv-with-reset ,block-name ,reset-errors
+	       collect `(%runtime-setv-with-reset ,accumulator
+						  ,block-name
+						  ,reset-errors
 						  ,p ,v ,db)))))
-
-(defmacro old-with-runtime-atomic-setv ((&key (re-error t) (handle-errors '(error)))
-				    &body body)
-  (alexandria:with-gensyms (block-name args c inner-c)
-    `(let ((,c (block ,block-name
-		 (let ((with-atomic-setv-accumulator nil))
-		   (macrolet ((setv (&rest ,args)
-				`(%runtime-atomic-setv ,',block-name
-						       ,',handle-errors
-						       ,@,args)))
-		     (handler-case (progn ,@body)
-		       ((or ,@handle-errors) (,inner-c)
-			 (%runtime-atomic-setv-reset)
-			 (return-from ,block-name ,inner-c))))))))
-       (if (and ,re-error (typep ,c '(or ,@handle-errors)))
-	   (error 'setv-wrapped-error :error ,c)
-	   (progn (warn "WITH-ATOMIC-SETV encountered the error~%~S~%and reset."
-			,c)
-		  ,c)))))
 
 (defmacro with-runtime-atomic-setv ((&key (re-error t) handle-conditions)
 				    &body body)
-  (alexandria:with-gensyms (block-name args c inner-c outer-block)
+  (alexandria:with-gensyms (block-name args c inner-c outer-block accumulator)
     `(block ,outer-block
        (let ((,c (block ,block-name
-		   (let ((with-atomic-setv-accumulator nil))
+		   (let ((,accumulator nil))
 		     (macrolet ((setv (&rest ,args)
-				  `(%runtime-atomic-setv ,',block-name
+				  `(%runtime-atomic-setv ,',accumulator
+							 ,',block-name
 							 ,',handle-conditions
 							 ,@,args)))
 		       (handler-case
 			   (restart-case (progn ,@body)
 			     (abort-and-reset ()
 			       :report "Exit WITH-ATOMIC-SETV and reset everything"
-			       (%runtime-atomic-setv-reset)
+			       (%runtime-atomic-setv-reset ,accumulator)
+			       (return-from ,outer-block nil))
+			     (abort-without-resetting ()
+			       :report "Exit WITH-ATOMIC-SETV without resetting"
 			       (return-from ,outer-block nil)))
 			 (,handle-conditions (,inner-c)
-			   (%runtime-atomic-setv-reset)
+			   (%runtime-atomic-setv-reset ,accumulator)
 			   (return-from ,block-name ,inner-c))))))))
 	 (if (and ,re-error (typep ,c ',handle-conditions))
 	     (error 'setv-wrapped-error :error ,c)
@@ -344,7 +344,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 		  (warn ,c)))
 	       ,c))))))
 
-(defmacro with-atomic-setv ((&key (re-error t) handle-conditions)
+(defmacro with-atomic-setv ((&key (errorp t) handle-conditions)
 			    &body body)
   "This macro, upon encountering an error, resets all places encountered within 
 calls to setv to be reset to the value they held before the call to 
@@ -352,6 +352,6 @@ with-atomic-setv. Which errors to reset upon can be controlled with
 HANDLE-CONDITIONS. If it is nil, it defaults to 'error. If a handled condition is 
 encountered, it will be wrapped in SETV-WRAPPED-ERROR, unless RE-ERROR is nil, in 
 which case a warning will be generated and the condition will be returned. "
-  `(with-runtime-atomic-setv (:re-error ,re-error
+  `(with-runtime-atomic-setv (:re-error ,errorp
 			      :handle-conditions ,(or handle-conditions 'error))
      ,@body))

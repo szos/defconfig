@@ -1,7 +1,4 @@
-(unless (find-package :fiveam)
-  (error "Please load fiveam to run the test suite"))
-
-(defpackage #:defconfig.test
+(defpackage #:defconfig/tests
   (:use #:cl)
   ;; (:local-nicknames (#:am #:fiveam))
   (:import-from #:defconfig #:defconfig #:setv #:with-atomic-setv #:setv-atomic
@@ -10,7 +7,9 @@
 		#:define-accessor-config)
   (:import-from #:fiveam #:is #:signals))
 
-(in-package :defconfig.test)
+(in-package :defconfig/tests)
+
+(defparameter *counter* 0)
 
 (defconfig:delete-db :testing t)
 
@@ -316,8 +315,8 @@
     (with-atomic-setv ()
       (setv (testing-class-slot-1 *testing-class*) 8)
       (error "foo")))
-  (is (= (testing-class-slot-1 *testing-class*) 8))
-  ;; this ~is~ was the test that is failing... 
+  (is (= (testing-class-slot-1 *testing-class*) 4))
+  ;; this was the test that is failing... 
 
   ;; ;; test with compiler-let w-a-s*
   (setf (testing-class-slot-1 *testing-class*) 0)
@@ -362,4 +361,37 @@
   (is (= *var3* 0))
   (is (= *var4* 0))
   (is (= *var5* 0)))
+
+(fiveam:test test-side-effects-within-accessor-w-a-s
+  (setf *counter* 0)
+  (setf (testing-class-slot-1 *testing-class*) 0)
+  (with-atomic-setv ()
+    (setv (testing-class-slot-1 (progn (incf *counter*)
+				       *testing-class*))
+	  -9)
+    (setv (testing-class-slot-1 (progn (incf *counter*)
+				       *testing-class*))
+	  -8)
+    (setv (testing-class-slot-1 (progn (incf *counter*)
+				       *testing-class*))
+	  -7))
+  (is (= *counter* 3))
+  (is (= (testing-class-slot-1 *testing-class*) -7))
+
+  (setf *counter* 0)
+  (setf (testing-class-slot-1 *testing-class*) 0)
+  (signals defconfig:setv-wrapped-error
+    (with-atomic-setv ()
+      (setv (testing-class-slot-1 (progn (incf *counter*)
+					 *testing-class*))
+	    -9)
+      (setv (testing-class-slot-1 (progn (incf *counter*)
+					 *testing-class*))
+	    -8)
+      (setv (testing-class-slot-1 (progn (incf *counter*)
+					 *testing-class*))
+	    -7)
+      (error "ohnoerror")))
+  (is (= *counter* 3))
+  (is (= (testing-class-slot-1 *testing-class*) 0)))
 
