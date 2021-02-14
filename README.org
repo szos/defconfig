@@ -112,7 +112,7 @@
    - ~:greedy+permissive~ - When a configuration object isnt found, search for one as per ~:greedy~. If one still isnt found, set the variable to the value. 
      
 * Quirks and Oddities
-  There are a few places in ~ðefconfig~ that arent naturally intuitive. 
+  There are a few places in ~defconfig~ that arent naturally intuitive. 
 ** ~With-atomic-setv~
    The star variant of ~with-atomic-setv~ has a quirk in that places get evaluated multiple times if one resets, while both variants evaluate accessors multiple times. Some code to demonstrate:
 #+BEGIN_SRC lisp
