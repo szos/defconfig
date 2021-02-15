@@ -34,19 +34,29 @@
 (defmacro with-config-info ((var place &key (db '*default-db*)
 					 (unfound-policy :strict))
 			    &body body)
-  `(%%with-config-info (lambda (,var) ,@body) ,place ',db ,unfound-policy))
+  `(%%with-config-info (lambda (,var) ,@body) ,place ,db ,unfound-policy))
 
-(defun tag-configurable-place (tag place &key (db *default-db*))
+(defun tag-configurable-place (tag place &key (db *default-db*) reclass)
   "Push TAG onto the list of tags for the config-info object associated with 
 PLACE in DB."
-  (push tag (config-info-tag-list (place->config-info place :db db))))
+  (atypecase (place->config-info place :db db)
+    (minimal-config-info
+     (if reclass
+	 (progn (change-class it 'accessor-config-info)
+		(push tag (config-info-tag-list it)))
+	 (error 'type-error :expected-type 'config-info-metadata
+			    :datum it
+			    :context (format nil "when pushing tagging ~S" it))))
+    ((or accessor-config-info config-info)
+     (push tag (config-info-tag-list it)))))
 
 (defun config-info-search-tags (tags &key (namespace :both) (db *default-db*))
   (flet ((fmap ()
 	   (let (fobjs)
 	     (maphash (lambda (k v)
 			(declare (ignore k))
-			(loop for tag in (config-info-tags v)
+			(loop for tag in (when (typep v 'config-info-metadata)
+					   (config-info-tags v))
 			      do (loop for el in tags
 				       if (string= el tag)
 					 do (push v fobjs))))
@@ -57,7 +67,8 @@ PLACE in DB."
 	     (maphash (lambda (k v)
 			(declare (ignore k))
 			(block tagblock
-			  (loop for tag in (config-info-tags v)
+			  (loop for tag in (when (typep v 'config-info-metadata)
+					     (config-info-tags v))
 				do (loop for el in tags
 					 if (string= el tag)
 					   do (push v vobjs)))))
@@ -99,13 +110,7 @@ the previous value. TEST is used to check if a reset is needed.")
 
   (:method ((place symbol) &key (db *default-db*) (test 'eql) previous-value)
     (with-config-info (obj place :db db)
-      (let ((curval (symbol-value place))
-	    (newval (if previous-value
-			(config-info-previous-value obj)
-			(config-info-default-value obj))))
-	(unless (funcall test curval newval)
-	  (setf (symbol-value place) newval
-		(config-info-prev-value obj) curval)))))
+      (reset-computed-place obj :db db :test test :previous-value previous-value)))
 
   (:method ((object config-info) &key db (test 'eql) previous-value)
     (declare (ignore db))
@@ -123,6 +128,10 @@ the previous value. TEST is used to check if a reset is needed.")
       (error 'not-resettable-place-error :place place :object obj)))
 
   (:method ((object accessor-config-info) &key db test previous-value)
+    (declare (ignore db test previous-value))
+    (error 'not-resettable-place-error :place (config-info-place object)
+				       :object object))
+  (:method ((object minimal-config-info) &key db test previous-value)
     (declare (ignore db test previous-value))
     (error 'not-resettable-place-error :place (config-info-place object)
 				       :object object)))

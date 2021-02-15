@@ -75,13 +75,16 @@
                  :reader config-info-valid-values-description
                  :documentation "An explanation of the valid values and predicate function")))
 
-(defclass %config-info (config-info-metadata config-info-functions
-                        config-info-direct-info)
-  ())
+(defclass minimal-config-info (config-info-functions config-info-direct-info) ())
 
-(defclass config-info (%config-info config-info-values) ())
+(defclass accessor-config-info (config-info-metadata minimal-config-info) ())
 
-(defclass accessor-config-info (%config-info) ())
+(defclass config-info (accessor-config-info config-info-values) ())
+
+
+(defmethod print-object ((object minimal-config-info) stream)
+  (print-unreadable-object (object stream)
+    (format stream "MINIMAL-CONFIG-INFO ~A" (config-info-place object))))
 
 (defmethod print-object ((object config-info) stream)
   (print-unreadable-object (object stream)
@@ -94,7 +97,7 @@
 (defun slot-bound-p (obj slot)
   (slot-boundp obj slot))
 
-(defmethod initialize-instance :after ((obj %config-info) &key)
+(defmethod initialize-instance :after ((obj accessor-config-info) &key)
   (cond ((slot-bound-p obj 'valid-values)
          (unless (typep (slot-value obj 'valid-values) 'string)
            (setf (slot-value obj 'valid-values)

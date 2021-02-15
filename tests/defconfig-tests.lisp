@@ -335,6 +335,8 @@
 (defconfig *var1* 0
   :typespec 'integer)
 
+(defmacro var1 () '*var1*)
+
 (defconfig *var2* 0
   :typespec 'integer)
 
@@ -397,7 +399,6 @@
 
 (fiveam:test test-setv-with-macro
   (setf *var1* 0)
-  (defmacro var1 () '*var1*)
   (setf *setv-permissiveness* :strict)
   (signals defconfig:no-config-found-error
     (setv (var1) 1))
