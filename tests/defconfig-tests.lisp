@@ -411,11 +411,13 @@
 
 (defconfig-minimal *min* 0
   :typespec '(integer 0 10)
-  :coercer (lambda (n) (handler-case (abs n)
-			 (error () n)))
+  :coercer (lambda (n)
+	     (handler-case (abs n)
+	       (error () n)))
   :reinitialize t
   :regen-config t)
 
 (fiveam:test minimal-configs
   (signals defconfig:config-error
-    (setv *min* 300)))
+    (setv *min* 300))
+  (is (= *min* 0)))

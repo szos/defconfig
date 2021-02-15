@@ -16,11 +16,13 @@
 							 `(:coercer ,coercer))))
 	   ,obj))))
 
-(defmacro define-minimal-config (place &key validator typespec coercer db
-					 regen-config)
+(defmacro define-minimal-config (place &key (type :accessor) validator typespec
+					 coercer db regen-config)
   (when (and validator typespec)
     (error "The arguments :VALIDATOR and :TYPESPEC cannot both be supplied"))
-  `(define-min ,place
+  `(define-min ,(if (and (eq type :accessor) (symbolp place))
+		    (list place)
+		    place)
      :predicate ,(cond (typespec
 			`(lambda (x) (typep x ,typespec)))
 		       (t validator))
