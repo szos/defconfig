@@ -111,8 +111,16 @@
    - ~:permissive~ - When a configuration object isnt found, set the variable to the value.
    - ~:greedy+permissive~ - When a configuration object isnt found, search for one as per ~:greedy~. If one still isnt found, set the variable to the value. 
      
-* Quirks and Oddities
-  There are a few places in ~defconfig~ that arent naturally intuitive. 
+* Quirks, Oddities and Limitations
+  There are a few places in ~defconfig~ that arent naturally intuitive.
+** Setv and macros
+   Setv wont work with macros that expand into something else to be set in the same way setf does. Example:
+#+BEGIN_SRC lisp
+  (defconfig *var* nil)
+  (defmacro var () '*var*)
+  (setf (var) 1) ; works
+  (setv (var) 2) ; tries to find config for the accessor var, not the variable *var*
+#+END_SRC
 ** ~With-atomic-setv~
    The star variant of ~with-atomic-setv~ has a quirk in that places get evaluated multiple times if one resets, while both variants evaluate accessors multiple times. Some code to demonstrate:
 #+BEGIN_SRC lisp
