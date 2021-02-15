@@ -1,5 +1,57 @@
 (in-package :defconfig)
 
+;;; Minimal configs
+
+(defmacro define-min (place &key predicate coercer db regen-config)
+  (alexandria:with-gensyms (hash obj pred)
+    `(let* ((,pred ,(if predicate predicate 'cl::identity))
+            (,hash (,(if (listp place) 'car 'cdr) ,(if db db '*default-db*)))
+            (,obj (gethash ',place ,hash)))
+       (if (or (not ,obj) ,regen-config)
+	   (setf (gethash ',place ,hash)
+		 (make-instance 'minimal-config-info :place ',place
+						     :db ,(if db db '*default-db*)
+						     :predicate ,pred
+						     ,@(when coercer
+							 `(:coercer ,coercer))))
+	   ,obj))))
+
+(defmacro define-minimal-config (place &key validator typespec coercer db
+					 regen-config)
+  (when (and validator typespec)
+    (error "The arguments :VALIDATOR and :TYPESPEC cannot both be supplied"))
+  `(define-min ,place
+     :predicate ,(cond (typespec
+			`(lambda (x) (typep x ,typespec)))
+		       (t validator))
+     :coercer ,coercer
+     :db ,db
+     :regen-config ,regen-config))
+
+(defmacro defconfig-minimal (place &rest args)
+  (cond ((consp place)
+	 `(define-minimal-config ,place ,@args))
+	((and (keywordp (car args)) (not (keywordp (cadr args)))) 
+	 ;; then we have no default value and we want to use the current value of
+	 ;; place. 
+	 (destructuring-bind (&key validator typespec coercer db regen-config)
+	     args
+	   `(define-minimal-config ,place ,place
+	      :validator ,validator :typespec ,typespec :coercer ,coercer
+	      :db ,db :regen-config ,regen-config)))
+	(t
+	 (destructuring-bind (default &key validator typespec coercer db
+					regen-config reinitialize documentation)
+	     args
+	   `(prog1
+		(restart-case
+		    (define-minimal-config ,place
+		      :validator ,validator :typespec ,typespec :coercer ,coercer
+		      :db ,db :regen-config ,regen-config)
+		  (define-variable-regardless () nil))
+	      (,(if reinitialize 'defparameter 'defvar)
+	       ,place ,default ,@(when documentation (list documentation))))))))
+
 ;;; Accessor configs
 
 (defmacro defconf-a (place &key predicate coercer db tags documentation regen

@@ -4,7 +4,8 @@
   (:import-from #:defconfig #:defconfig #:setv #:with-atomic-setv #:setv-atomic
 		#:make-config-database #:reset-place #:with-atomic-setv*
 		#:define-defconfig-db #:get-db #:delete-db #:*setv-permissiveness*
-		#:define-accessor-config)
+		#:define-accessor-config #:define-minimal-config
+		#:defconfig-minimal)
   (:import-from #:fiveam #:is #:signals))
 
 (in-package :defconfig/tests)
@@ -405,5 +406,16 @@
   (is (= *var1* 0))
   (setf *setv-permissiveness* :permissive)
   (setv (var1) 1)
-  (is (= *var1* 1)))
+  (is (= *var1* 1))
+  (setf *var1* 0))
 
+(defconfig-minimal *min* 0
+  :typespec '(integer 0 10)
+  :coercer (lambda (n) (handler-case (abs n)
+			 (error () n)))
+  :reinitialize t
+  :regen-config t)
+
+(fiveam:test minimal-configs
+  (signals defconfig:config-error
+    (setv *min* 300)))
