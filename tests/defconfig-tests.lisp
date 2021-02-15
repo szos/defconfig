@@ -395,3 +395,14 @@
   (is (= *counter* 3))
   (is (= (testing-class-slot-1 *testing-class*) 0)))
 
+(fiveam:test test-setv-with-macro
+  (setf *var1* 0)
+  (defmacro var1 () '*var1*)
+  (setf *setv-permissiveness* :strict)
+  (signals defconfig:no-config-found-error
+    (setv (var1) 1))
+  (is (= *var1* 0))
+  (setf *setv-permissiveness* :permissive)
+  (setv (var1) 1)
+  (is (= *var1* 1)))
+
