@@ -8,6 +8,7 @@
   :serial t
   :depends-on (#:alexandria #:trivial-cltl2)
   :components ((:file "package")
+	       (:file "macros")
 	       (:file "database")
 	       (:file "classes")
 	       (:file "conditions")

@@ -6,6 +6,8 @@
   (:export #:defconfig ; main macro
            #:define-accessor-config
 	   #:define-variable-config
+	   #:define-minimal-config
+	   #:defconfig-minimal
 	   #:*setv-permissiveness*
 	   
 	   ;; setters and searchers
