@@ -40,7 +40,7 @@
 	     args
 	   `(define-minimal-config ,place ,place
 	      :validator ,validator :typespec ,typespec :coercer ,coercer
-	      :db ,db :regen-config ,regen-config)))
+	      :db ,db :regen-config ,regen-config :type :variable)))
 	(t
 	 (destructuring-bind (default &key validator typespec coercer db
 					regen-config reinitialize documentation)
@@ -49,7 +49,7 @@
 		(restart-case
 		    (define-minimal-config ,place
 		      :validator ,validator :typespec ,typespec :coercer ,coercer
-		      :db ,db :regen-config ,regen-config)
+		      :db ,db :regen-config ,regen-config :type :variable)
 		  (define-variable-regardless () nil))
 	      (,(if reinitialize 'defparameter 'defvar)
 	       ,place ,default ,@(when documentation (list documentation))))))))
