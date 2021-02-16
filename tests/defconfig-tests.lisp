@@ -350,6 +350,7 @@
   :typespec 'integer)
 
 (fiveam:test test-many-setvs*
+  (setf *var1* 0)
   (signals error 
     (with-atomic-setv* ()
       (setv *var1* 1)
@@ -381,7 +382,7 @@
   (is (= (testing-class-slot-1 *testing-class*) -7))
 
   (setf *counter* 0)
-  (setf (testing-class-slot-1 *testing-class*) 0)
+  (setv (testing-class-slot-1 *testing-class*) 0)
   (signals defconfig:setv-wrapped-error
     (with-atomic-setv ()
       (setv (testing-class-slot-1 (progn (incf *counter*)
