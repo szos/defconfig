@@ -12,6 +12,7 @@
 	   
 	   ;; setters and searchers
 	   #:setv
+           #:psetv
            #:with-atomic-setv
 	   #:with-atomic-setv*
 	   #:reset-place

@@ -9,7 +9,7 @@
   If you encounter something that doesnt work as you think it should, please open an issue here. If you describe the exhibited behavior and the expected behavior, it will be added to the test suite and fixed (hopefully quickly). 
 
 * Usage
-  The basic usage of this system is through the macros ~defconfig~, ~setv~ and ~with-atomic-setv~. The macro ~defconfig~ defines a configuration object which is used to check values against a predicate. The macro ~setv~ uses these configuration objects to validate values before calling setf. An error is signalled if A) the value is invalid, B) the coerced value is invalid (when applicable) or C) the place one is trying to set doesnt have a configuration object. For A and B, restarts are put into place to ignore the invalidity and set regardless. The macro ~with-atomic-setv~ collects all places set with ~setv~ in its body and if an error is signalled resets all changed values back to their original value held before the ~with-atomic-setv~ form. 
+  The basic usage of this system is through the macros ~defconfig~, ~setv~ and ~with-atomic-setv~. The macro ~defconfig~ defines a configuration object which is used to check values against a predicate. The macro ~setv~ uses these configuration objects to validate values before calling setf. An error is signalled if A) the value is invalid, B) the coerced value is invalid (when applicable) or C) the place one is trying to set doesnt have a configuration object. For A and B, restarts are put into place to ignore the invalidity and set regardless, or continue without setting. The macro ~with-atomic-setv~ collects all places set with ~setv~ in its body and if an error is signalled resets all changed values back to their original value held before the ~with-atomic-setv~ form. 
 
 * Regarding This Readme
   This readme is not a complete explanation of defconfig. Please see =package.lisp= for a list of exported symbols and see the symbol docstrings for a better idea of what it does. Most (exported) symbols are well documented, slots have decent documentation describing their purpose/use, and errors should be grokkable from their ~:report~ functions.
@@ -121,6 +121,23 @@
   (setf (var) 1) ; works
   (setv (var) 2) ; tries to find config for the accessor var, not the variable *var*
 #+END_SRC
+** Psetv
+   The macro ~psetv~ is a ~setv~ equivalent of ~psetf~. However, while bindings are "preserved" throughout the form, if an error occurs and there is a non-local transfer of control, any places being set after the error will not be set. An example from the test suite: 
+#+BEGIN_SRC lisp
+  (defconfig-minimal *a* 'a
+    :typespec 'symbol)
+
+  (defconfig-minimal *b* "b"
+    :typespec 'string)
+
+  (defconfig-minimal *c* 'c
+    :typespec 'symbol)
+
+  (psetv *a* *c*
+         *b* *a*
+         *c* *a*)
+#+END_SRC
+   If one enters this in a repl, an error condition will be signalled upon trying to set ~*b*~ to ~'a~, and if one chooses to abort (via ~q~, or ~sly-db-abort~) then ~*c*~ will retain the value ~'c~, and ~*b*~ ~"b"~. 
 ** ~With-atomic-setv~
    The star variant of ~with-atomic-setv~ has a quirk in that places get evaluated multiple times if one resets, while both variants evaluate accessors multiple times. Some code to demonstrate:
 #+BEGIN_SRC lisp
@@ -197,10 +214,15 @@
      - May cause /place/ to be defined as a dynamic variable
      - Any side effects of running /validator/
 ** ~Setv~
-   The ~setv~ macro expands into multiple calls to ~%setv~, which validates a value before setting the place to it. It functions the same as ~setf~, but accepts the keyword ~:db~ to specify a database other than the default one provided by ~defconfig~. Returns the final value. 
+   The ~setv~ macro expands into multiple calls to ~%%setv~, which validates a value before setting the place to it. It functions the same as ~setf~, but accepts the keyword ~:db~ to specify a database other than the default one provided by ~defconfig~. Returns the final value. 
    - *Side Effects*:
      - Any side effects of evaluating a value. Place/value pairs are evaluated sequentially. If a value is not valid, no further values will be processed.
      - Causes /place/ to be set to /value/ 
+** ~Psetv~
+   The ~psetv~ macro expands into multiple calls to ~%%setv~, the same as ~setv~, but differs in that all values are computed before setting, giving the illusion of setting in parallel (similar to ~psetf~).
+   - Side Effects:
+     - Any side effects of evaluating a value. Place/value pairs are evaluated sequentially. If a value is not valid, no further values will be processed.
+     - Causes /place/ to be set to /value/
 ** ~With-atomic-setv/*~
    There are two versions of this macro:  ~with-atomic-setv~ and ~with-atomic-setv*~. The former tracks places and values purely at runtime, while the latter tracks places at macroexpansion time and values at runtime. 
 
