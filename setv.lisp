@@ -49,13 +49,16 @@ variable via destructuring-bind."
 	 ,@body))))
 
 (defmacro %setv-ensure-setf (place value config-info-object)
-  `(progn ,(if (listp place)
-	       `(setf ,place ,value)
-	       `(psetf ,place ,value
-		       (config-info-prev-value ,config-info-object) ,place))
-	  ,value))
+  (alexandria:with-gensyms (holdover)
+    `(progn ,(if (listp place)
+                 `(setf ,place ,value)
+                 `(let ((,holdover ,place))
+                    (setf ,place ,value)
+                    (when (typep ,config-info-object 'config-info)
+                      (setf (config-info-prev-value ,config-info-object) ,holdover))))
+            ,value)))
 
-(defun %fsetv-ensure-validity (config-info-object value invalid-symbol
+(defun %fsetv-ensure-validity (throwtag config-info-object value invalid-symbol
 			       &optional errorp place error extra-args)
   "check VALUE against CONFIG-INFO-OBJECTs predicate. return VALUE if it passes.
 If ERRORP is true error if VALUE doesnt pass. If ERRORP is nil and VALUE doesnt 
@@ -77,6 +80,10 @@ regardless."
 				   :place real-place
 				   :value value)))
 		(t invalid-symbol)))
+      (continue ()
+        :report (lambda (s)
+                  (format s "Return NIL without setting ~A" real-place))
+        (throw throwtag nil))
       (use-value (provided)
 	:test (lambda (c) (typep c 'invalid-datum-error))
 	:report (lambda (s)
@@ -95,22 +102,23 @@ regardless."
 		       (format *query-io* "Enter Value:  ")
 		       (force-output *query-io*)
 		       (list (read *query-io*)))
-	(%fsetv-ensure-validity config-info-object provided invalid-symbol
-				errorp real-place))
+	(%fsetv-ensure-validity throwtag config-info-object provided
+                                invalid-symbol errorp real-place))
       (set-regardless ()
 	:test (lambda (c) (typep c 'invalid-datum-error))
 	:report (lambda (s) (format s "Regardless of validity, set ~S to ~S"
 				    real-place value))
 	(return-from %fsetv-ensure-validity value)))))
 
-(defmacro %%setv-coerced (place value config-object coercer)
+(defmacro %%setv-coerced (place value config-object coercer throwtag)
   (alexandria:with-gensyms (coer-hold validated-value invalid-sym)
     `(if ,coercer 
 	 (let* ((,coer-hold (funcall ,coercer ,value))
 		(,validated-value
-		  (%fsetv-ensure-validity ,config-object ,coer-hold ',invalid-sym
-					  t ',place 'invalid-coerced-datum-error
-					  (list :coerced-value ,coer-hold))))
+		  (%fsetv-ensure-validity ,throwtag ,config-object ,coer-hold
+                                          ',invalid-sym t ',place
+                                          'invalid-coerced-datum-error
+                                          (list :coerced-value ,coer-hold))))
 	   ;; we dont need to check ,validated-values here as we will ALWAYS error
 	   ;; if we get a invalid coerced data. 
 	   (%setv-ensure-setf ,place ,validated-value ,config-object))
@@ -149,17 +157,17 @@ to be provided if were calling this in a setv expansion."
 			   :place place :db 'all-registered-databases)))))))))
 
 (defmacro %%setv (place value db)
-  (alexandria:with-gensyms (hold hash config-info-object invalid-sym
+  (alexandria:with-gensyms (hold hash config-info-object invalid-sym 
 				 validated-value coer setf?-sym block)
     `(let ((,hold ,value))
-       (block ,block 
-	 (let* ((,hash ,(if (listp place) `(car ,db) `(cdr ,db)))
+       (catch ',block
+         (let* ((,hash ,(if (listp place) `(car ,db) `(cdr ,db)))
 		(,config-info-object
 		  (let ((obj (%fsetv-get-config-info-object ',place ,hash ',db
 							    ',setf?-sym)))
 		    (if (eql obj ',setf?-sym)
 			(progn (setf ,place ,hold)
-			       (return-from ,block ,hold))
+			       (throw ',block ,hold))
 			obj)))
 		(,coer (config-info-coercer ,config-info-object))
 		(,validated-value
@@ -167,10 +175,10 @@ to be provided if were calling this in a setv expansion."
 		  ;; if there is a coercer for the place we will return invalid-sym
 		  ;; when ,hold is invalid, and if not we will error out with
 		  ;; restarts in place to provide a value or set regardless
-		  (%fsetv-ensure-validity ,config-info-object ,hold ',invalid-sym
-					  (not ,coer) ',place)))
+		  (%fsetv-ensure-validity ',block ,config-info-object ,hold
+                                          ',invalid-sym (not ,coer) ',place)))
 	   (if (eql ,validated-value ',invalid-sym)
-	       (%%setv-coerced ,place ,hold ,config-info-object ,coer)
+	       (%%setv-coerced ,place ,hold ,config-info-object ,coer ',block)
 	       (%setv-ensure-setf ,place ,validated-value ,config-info-object)))))))
 
 (defmacro setv (&rest args)
@@ -202,6 +210,21 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 		       for gensym in syms
 		       collect `(setf ,place ,gensym))
 	       (error ,c))))))))
+
+(defmacro %psetv (db pairs)
+  (let ((gensyms (loop for x in pairs collect (gensym "NEW"))))
+    `(let* ,(loop for (p v) on pairs by 'cddr
+                  for gensym in gensyms
+                  collect `(,gensym ,v))
+       ,@(loop for (p v) on pairs by 'cddr
+               for gensym in gensyms
+               collect `(%%setv ,p ,gensym ,db))
+       nil)))
+
+(defmacro psetv (&rest args)
+  "The setv equivalent of psetf - set all places in parallel"
+  (destructuring-keys (pairs (:db '*default-db*)) args
+    `(%psetv ,db ,pairs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Compile-time with-atomic-setv ;;;

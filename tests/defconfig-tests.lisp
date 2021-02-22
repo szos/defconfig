@@ -5,7 +5,7 @@
 		#:make-config-database #:reset-place #:with-atomic-setv*
 		#:define-defconfig-db #:get-db #:delete-db #:*setv-permissiveness*
 		#:define-accessor-config #:define-minimal-config
-		#:defconfig-minimal)
+		#:defconfig-minimal #:psetv)
   (:import-from #:fiveam #:is #:signals))
 
 (in-package :defconfig/tests)
@@ -422,3 +422,33 @@
   (signals defconfig:config-error
     (setv *min* 300))
   (is (= *min* 0)))
+
+(defconfig-minimal *a* 'a
+  :typespec 'symbol)
+
+(defconfig-minimal *b* "b"
+  :typespec 'string)
+
+(defconfig-minimal *c* 'c
+  :typespec 'symbol)
+
+(fiveam:test test-psetv
+  (is (and (eql *a* 'a)
+           (eql *c* 'c)))
+  (psetv *a* *c*
+         *c* *a*)
+  (is (and (eql *a* 'c)
+           (eql *c* 'a)))
+  (signals defconfig:invalid-datum-error
+    (psetv *a* *c*
+           *b* *a*
+           *c* *a*))
+  (is (and (eql *a* 'a)
+           (string= *b* "b")
+           (eql *c* 'a)))
+  (psetv *a* 'a
+         *c* 'c
+         *b* "b")
+  (is (and (eql *a* 'a)
+           (string= *b* "b")
+           (eql *c* 'c))))
