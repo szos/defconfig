@@ -49,11 +49,14 @@ variable via destructuring-bind."
 	 ,@body))))
 
 (defmacro %setv-ensure-setf (place value config-info-object)
-  `(progn ,(if (listp place)
-	       `(setf ,place ,value)
-	       `(psetf ,place ,value
-		       (config-info-prev-value ,config-info-object) ,place))
-	  ,value))
+  (alexandria:with-gensyms (holdover)
+    `(progn ,(if (listp place)
+                 `(setf ,place ,value)
+                 `(let ((,holdover ,place))
+                    (setf ,place ,value)
+                    (when (typep ,config-info-object 'config-info)
+                      (setf (config-info-prev-value ,config-info-object) ,holdover))))
+            ,value)))
 
 (defun %fsetv-ensure-validity (config-info-object value invalid-symbol
 			       &optional errorp place error extra-args)
