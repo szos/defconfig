@@ -199,12 +199,12 @@
 ** ~Setv~
    The ~setv~ macro expands into multiple calls to ~%setv~, which validates a value before setting the place to it. It functions the same as ~setf~, but accepts the keyword ~:db~ to specify a database other than the default one provided by ~defconfig~. Returns the final value. 
    - *Side Effects*:
-     - Any side effects of evaluating a value. All values are evaluated sequentially. If a value is not valid, no further values will be processed.
+     - Any side effects of evaluating a value. Place/value pairs are evaluated sequentially. If a value is not valid, no further values will be processed.
      - Causes /place/ to be set to /value/ 
 ** ~With-atomic-setv/*~
    There are two versions of this macro:  ~with-atomic-setv~ and ~with-atomic-setv*~. The former tracks places and values purely at runtime, while the latter tracks places at macroexpansion time and values at runtime. 
 
-   The ~with-atomic-setv~ macro resets any places set using ~setv~ to the value it held before the call to ~with-atomic-setv~, when a condition is encountered. One can specify whether to re-signal the condition or not with ~:errorp~. If ~:errorp~ is nil a warning will be issued on encountering a handled condition and the condition will be returned. One can specify which conditions to handle with ~:handle-conditions~, which accepts an (unquoted) type specifier. One can handle no conditions by passing ~(or)~, though that defeats the purpose of ~with-atomic-setv~. 
+   The ~with-atomic-setv~ macro resets any places set using ~setv~ to the value it held before the call to ~with-atomic-setv~, when a condition is encountered. One can specify whether to re-signal the condition or not with ~:errorp~. If ~:errorp~ is nil a warning will be issued on encountering a handled condition and the condition will be returned. Re-signalled conditions are wrapped in the condition ~setv-wrapped-error~. One can specify which conditions to handle with ~:handle-conditions~, which accepts an (unquoted) type specifier. One can handle no conditions by passing ~(or)~, though that defeats the purpose of ~with-atomic-setv~. 
    
    An example: 
 #+BEGIN_SRC lisp
