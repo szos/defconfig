@@ -452,3 +452,6 @@
   (is (and (eql *a* 'a)
            (string= *b* "b")
            (eql *c* 'c))))
+
+(fiveam:test test-predicateless
+  (defconfig *mytester* 'mytester))
