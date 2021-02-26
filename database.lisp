@@ -70,7 +70,15 @@ to allow the user to provide a new value to use instead of KEY"
                                     (typecase condition
                                       (type-error t)
                                       (database-already-exists-error t)
-                                      (t nil)))))
+                                      (t nil))))
+                 (continue
+                   (lambda ()
+                     (return-from def-defconfig-db-error-check nil))
+                   :report-function
+                   (lambda (s)
+                     (format s "Continue using existing database"))
+                   :test-function (lambda (c)
+                                    (typep c 'database-already-exists-error))))
     (cond ((not (keywordp key))
            (error 'type-error
                   :expected-type 'keyword
@@ -89,10 +97,10 @@ a defparameter form, otherwise use defvar. DOC is the documentation to pass to
 the def(parameter|var) form."
   (alexandria:with-gensyms (realkey)
     `(let ((,realkey (def-defconfig-db-error-check ,key ',var)))
-       (declare (special ,var)
-                (ignorable ,realkey))
-       (,(if parameter 'defparameter 'defvar) ,var (make-config-database) ,doc)
-       (add-db-to-plist ,realkey ',var))))
+       (declare (special ,var))
+       (when ,realkey
+         (,(if parameter 'defparameter 'defvar) ,var (make-config-database) ,doc)
+         (add-db-to-plist ,realkey ',var)))))
 
 (define-defconfig-db *default-db* :default
   :doc "The default database for defconfig")
