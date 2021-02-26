@@ -78,6 +78,14 @@ to allow the user to provide a new value to use instead of KEY"
                    (lambda (s)
                      (format s "Continue using existing database"))
                    :test-function (lambda (c)
+                                    (typep c 'database-already-exists-error)))
+                 (redefine
+                   (lambda ()
+                     (return-from def-defconfig-db-error-check key))
+                   :report-function
+                   (lambda (stream)
+                     (format stream "Reinitialize the database denoted by ~A" key))
+                   :test-function (lambda (c)
                                     (typep c 'database-already-exists-error))))
     (cond ((not (keywordp key))
            (error 'type-error
