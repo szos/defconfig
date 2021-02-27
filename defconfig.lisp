@@ -4,7 +4,7 @@
 
 (defmacro define-min (place &key predicate coercer db regen-config)
   (alexandria:with-gensyms (hash obj pred)
-    `(let* ((,pred ,(if predicate predicate ''cl::identity))
+    `(let* ((,pred ,(if predicate predicate #'cl::identity))
             (,hash (,(if (listp place) 'car 'cdr) ,(if db db '*default-db*)))
             (,obj (gethash ',place ,hash)))
        (if (or (not ,obj) ,regen-config)
@@ -59,7 +59,7 @@
 (defmacro defconf-a (place &key predicate coercer db tags documentation regen
                              valid-values)
   (alexandria:with-gensyms (hash obj pred)
-    `(let* ((,pred ,(if predicate predicate ''cl::identity))
+    `(let* ((,pred ,(if predicate predicate #'cl::identity))
             (,hash (car ,(if db db '*default-db*)))
             (,obj (gethash ',place ,hash)))
        (if (or (not ,obj) ,regen)
@@ -97,7 +97,7 @@
 (defmacro defconf-v (place default &key predicate coercer db tags documentation
                                      regen valid-values)
   (alexandria:with-gensyms (hold hash validated obj pred)
-    `(let* ((,pred ,(if predicate predicate ''cl::identity))
+    `(let* ((,pred ,(if predicate predicate #'cl::identity))
             (,hold ,default)
             (,hash (cdr ,(if db db '*default-db*)))
             (,validated (funcall ,pred ,hold))
