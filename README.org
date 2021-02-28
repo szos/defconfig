@@ -3,9 +3,9 @@
     Currently tested against SBCL, CCL, ABCL, ECL, and Allegro CL. 
 * Purpose
   Defconfig is a customization and validation framework for places in CL. Its intended use is with user-exposed variables and accessors, to protect users from setting variables to an invalid value an potentially encountering undefined behavior. It can be used with both dynamic variables and ~setf~-able functions. It coexists alongside ~setf~, and does not replace it - ie you can still use ~setf~ if you want to avoid validating the value. 
-  
-  Defconfig is still in its infancy; symbols will be changed, other symbols will be exported, and functionality may change. For this reason, do not ~:use~ defconfig. Instead ~:import~ the symbols you want to use - namely ~#:defconfig~, ~#:setv~, ~#:with-atomic-setv~, ~#:define-defconfig-db~, ~#:get-db~, and ~#:*setv-permissiveness*~. 
 
+  If you wish to just dive in, ~:import~ the symbols ~#:defconfig~, ~#:setv~, ~#:with-atomic-setv~, ~#:define-defconfig-db~, ~#:get-db~, and ~#:*setv-permissiveness*~ and read their docstrings. 
+  
   If you encounter something that doesnt work as you think it should, please open an issue here. If you describe the exhibited behavior and the expected behavior, it will be added to the test suite and fixed (hopefully quickly). 
 
 * Usage
