@@ -229,7 +229,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Compile-time with-atomic-setv ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+#-clisp
 (defmacro %atomic-setv-reset (accumulator &key (pop t))
   "this macro resets all encountered places within a call to with-atomic-setv*."
   (declare (special *setv-place-accumulator*))
@@ -240,7 +240,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
        ,@(when pop `((pop ,accumulator)))
        ,@(loop for (db place) in place-list
 	       collect `(setf ,place (pop ,accumulator))))))
-
+#-clisp
 (defmacro %setv-with-reset (block-name reset-on accumulator place value db)
   "Wrap setv in a handler to catch all errors, which will reset all encountered
  places, after which it returns the condition from the named block."
@@ -253,7 +253,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 	 (,reset-on (,c)
 	   (%atomic-setv-reset ,accumulator)
 	   (return-from ,block-name ,c))))))
-
+#-clisp
 (defmacro %atomic-setv (block-name reset-on-errors accumulator &rest args)
   "generates a set of calls to %setv-with-reset."
   (declare (special *setv-place-accumulator*))
@@ -262,7 +262,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
        ,@(loop for (p v) on pairs by 'cddr
 	       collect `(%setv-with-reset ,block-name ,reset-on-errors ,accumulator
 					  ,p ,v ,db)))))
-
+#-clisp
 (defmacro %with-atomic-setv* ((&key (re-error t) handle-conditions) &body body)
   "This macro utilizes compiler-let to allow rollbacks of accessor stuff. "
   (alexandria:with-gensyms (args block-name c inner-c accumulator)
@@ -284,7 +284,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 	 (if (and ,re-error (typep ,c ',handle-conditions))
 	     (error 'setv-wrapped-error :error ,c)
 	     ,c)))))
-
+#-clisp
 (defmacro with-atomic-setv* ((&key (re-error t) handle-conditions) &body body)
   `(%with-atomic-setv* (:re-error ,re-error
 			:handle-conditions ,(or handle-conditions 'error))

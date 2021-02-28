@@ -2,11 +2,13 @@
 
 (asdf:defsystem #:defconfig
   :description "A configuration system for user exposed variables"
-  :author "Your Name <your.name@example.com>"
+  :author "szos at posteo dot net"
   :license "GPLv3"
-  :version "0.0.1"
+  :version "1.1.2"
   :serial t
-  :depends-on (#:alexandria #:trivial-cltl2)
+  :depends-on (#:alexandria
+               #-clisp
+               #:trivial-cltl2)
   :components ((:file "package")
 	       (:file "macros")
 	       (:file "database")
@@ -16,6 +18,7 @@
                (:file "setv")
                (:file "access")))
 
+#-clisp
 (asdf:defsystem #:defconfig/tests
   :description "test suite for defconfig"
   :author "Your Name <your.name@example.com>"

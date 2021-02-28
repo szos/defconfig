@@ -119,6 +119,7 @@
   	    :db *testing-db*)
       (error "testing-error")))
   (is (= *bounded-number* 0))
+               
   (signals defconfig::setv-wrapped-error
     (with-atomic-setv* ()
       (setv *bounded-number* 1
@@ -137,6 +138,7 @@
       (defconfig::setv-wrapped-error (c)
 	(error (defconfig::setv-wrapped-error-condition c)))))
   (is (= *bounded-number* 0))
+             
   (signals defconfig:invalid-datum-error
     (handler-case (with-atomic-setv* ()
 		    (setv *bounded-number* 20
@@ -153,6 +155,7 @@
       (setv *bounded-number* 1
   	    :db *testing-db*)
       (error "testing-error")))
+  
   (signals defconfig::setv-wrapped-error
     (with-atomic-setv* ()
       (setv *bounded-number* 1
@@ -163,6 +166,7 @@
 	 (with-atomic-setv ()
 	   (setv *bounded-number* 3
 		 :db *testing-db*))))
+  
   (is (= 1
 	 (with-atomic-setv* ()
 	   (setv *bounded-number* 1
@@ -173,6 +177,7 @@
 			  :db *testing-db*))
       (defconfig::setv-wrapped-error (c)
 	(error (defconfig::setv-wrapped-error-condition c)))))
+  
   (signals defconfig:invalid-datum-error
     (handler-case (with-atomic-setv* ()
 		    (setv *bounded-number* 20
@@ -187,6 +192,7 @@
 	  :db *testing-db*))
   (is (and (equal *bounded-number* 1)
 	   (equal *other-bounded-number* 1)))
+  
   (with-atomic-setv* (:handle-conditions defconfig::config-error)
     (setv *other-bounded-number* 2
 	  *bounded-number* 2
@@ -203,6 +209,7 @@
       (error "ahhhh!!!")))
   (is (and (equal *bounded-number* 2)
 	   (equal *other-bounded-number* 2)))
+  
   (signals simple-error
     (with-atomic-setv* (:handle-conditions defconfig::config-error)
       (setv *other-bounded-number* 3
@@ -223,6 +230,7 @@
       (setv *bounded-number* 50
 	    :db *testing-db*)))
   (is (= *bounded-number* 0))
+  
   (signals defconfig:config-error
     (with-atomic-setv* ()
       (setv *bounded-number* 1
@@ -259,6 +267,7 @@
 	    :db *testing-db*)))
   (is (= *bounded-number* 2))
   (setf *bounded-number* 0)
+  
   (signals simple-error
     (with-atomic-setv* (:handle-conditions defconfig:config-error)
       (setv *bounded-number* 1
@@ -321,11 +330,13 @@
 
   ;; ;; test with compiler-let w-a-s*
   (setf (testing-class-slot-1 *testing-class*) 0)
+  
   (signals defconfig:config-error
     (with-atomic-setv* ()
       (setv (testing-class-slot-1 *testing-class*) 1)
       (error "foo")))
   (is (= (testing-class-slot-1 *testing-class*) 0)))
+
 
 (fiveam:test test-w-a-s*
   (let ((*setv-permissiveness* :greedy))
