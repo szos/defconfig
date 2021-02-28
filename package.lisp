@@ -15,6 +15,7 @@
 	   #:setv
            #:psetv
            #:with-atomic-setv
+           #-clisp
 	   #:with-atomic-setv*
 	   #:reset-place
 	   #:reset-computed-place
