@@ -263,3 +263,5 @@
   => #<SIMPLE-WARNING "hello" {address}>
 #+END_SRC
 
+* Help Wanted
+  Currently, Travis is being used for CI. However, these builds sometimes fail for unknown reasons unrelated to the defconfig test suite. It would be nice to be able to detect these failures and re-run the job upon encountering them. 
