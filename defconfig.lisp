@@ -190,12 +190,16 @@ functionality is currently only partially implemented."
 	 (destructuring-bind (default &key validator typespec coercer db tags
 					reinitialize documentation regen-config)
 	     args
-	   `(prog1
-		(restart-case
-		    (define-variable-config ,place ,default
-		      :validator ,validator :typespec ,typespec :coercer ,coercer
-		      :db ,db :tags ,tags :documentation ,documentation
-		      :regen-config ,regen-config)
-		  (define-variable-regardless () nil))
-	      (,(if reinitialize 'defparameter 'defvar)
-	       ,place ,default ,@(when documentation (list documentation))))))))
+           (alexandria:with-gensyms (hold)
+             `(let ((,hold ,default))
+                (prog1
+                    (restart-case
+                        (define-variable-config ,place ,hold
+                          :validator ,validator :typespec ,typespec
+                          :coercer ,coercer :db ,db :tags ,tags
+                          :documentation ,documentation
+                          :regen-config ,regen-config)
+                      (define-variable-regardless () nil))
+                  (,(if reinitialize 'defparameter 'defvar)
+                   ,place ,hold
+                   ,@(when documentation (list documentation))))))))))
