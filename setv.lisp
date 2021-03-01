@@ -277,7 +277,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 		       (handler-case
 			   ;; (restart-case
 			   (progn ,@body)
-			   ;;   (with-atomic-setv-reset () ))
+                         ;;   (with-atomic-setv-reset () ))
 			 (,handle-conditions (,inner-c)
 			   (%atomic-setv-reset ,accumulator :pop nil)
 			   (return-from ,block-name ,inner-c))))))))

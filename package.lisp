@@ -2,7 +2,9 @@
 
 (defpackage #:defconfig
   (:use #:cl)
-  (:import-from #:trivial-cltl2 #:compiler-let)
+  (:import-from #-clisp #:trivial-cltl2
+                #+clisp #:ext
+                #:compiler-let)
   (:export #:defconfig ; main macro
            #:define-accessor-config
 	   #:define-variable-config
