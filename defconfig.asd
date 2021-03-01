@@ -18,7 +18,6 @@
                (:file "setv")
                (:file "access")))
 
-#-clisp
 (asdf:defsystem #:defconfig/tests
   :description "test suite for defconfig"
   :author "Your Name <your.name@example.com>"
