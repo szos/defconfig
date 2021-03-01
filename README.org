@@ -171,7 +171,7 @@
   Furthermore, we cannot reset accessor places.
 
 ** Defconfig and CLISP
-   While defconfig loads on CLISP, there are some discrepancies. Namely, ~with-atomic-setv*~ is unavailable and the test suite will not load. Any issues with defconfig on CLISP will be considered, but may not be given priority. 
+   While defconfig loads on CLISP, there are some discrepancies. Namely, ~with-atomic-setv*~ is unavailable and the test suite will not load. This may be due to my distributions version of CLISP. 
 
 * Macros
 ** ~Define-variable-config~
@@ -262,7 +262,4 @@
   WARNING: hello
   => #<SIMPLE-WARNING "hello" {address}>
 #+END_SRC
-
-* Help Wanted
-  Currently, it seems that ~trivial-cltl2~ doesnt load on Clisp, which this system depends upon. Furthermore ~slynk~ will load, but Clisp segfaults immediately after sending something over sly. While I dont use Clisp in my day to day activities, I believe it is best to try and support as much as possible. I will slowly work at understanding what is needed to get this system running on Clisp, but if you, dear reader, know or have an idea of what is needed to get this going please do drop me a line, or open an issue or pull request. 
 
