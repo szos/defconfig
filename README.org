@@ -171,7 +171,7 @@
   Furthermore, we cannot reset accessor places.
 
 ** Defconfig and CLISP
-   Many distributions package an older version of CLISP upon which the defconfig dependencies ~:trivial-cltl2~ and ~:fiveam~ wont load. CLISP version 2.49.92 and higher is known to work, and can be obtained from the 2.50 branch on gitlab. At the time of writing the master branch is v2.49.93+. 
+   Many distributions package an older version of CLISP upon which the defconfig testing dependency ~:fiveam~ wont load. CLISP version 2.49.92 and higher is known to work, and can be obtained from the 2.50 branch on gitlab. At the time of writing the master branch is v2.49.93+. 
 
 * Macros
 ** ~Define-variable-config~
