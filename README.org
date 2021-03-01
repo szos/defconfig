@@ -171,7 +171,7 @@
   Furthermore, we cannot reset accessor places.
 
 ** Defconfig and CLISP
-   While defconfig loads on CLISP, there are some discrepancies. Namely, ~with-atomic-setv*~ is unavailable and the test suite will not load. This may be due to my distributions version of CLISP. 
+   Many distributions package an older version of CLISP upon which the defconfig dependencies ~:trivial-cltl2~ and ~:fiveam~ wont load. Please clone CLISP from the official gitlab repo and test using that before opening any issues regarding CLISP specific behavior. 
 
 * Macros
 ** ~Define-variable-config~

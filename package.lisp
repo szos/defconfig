@@ -2,7 +2,6 @@
 
 (defpackage #:defconfig
   (:use #:cl)
-  #-clisp
   (:import-from #:trivial-cltl2 #:compiler-let)
   (:export #:defconfig ; main macro
            #:define-accessor-config
@@ -15,8 +14,7 @@
 	   #:setv
            #:psetv
            #:with-atomic-setv
-           #-clisp
-	   #:with-atomic-setv*
+           #:with-atomic-setv*
 	   #:reset-place
 	   #:reset-computed-place
 	   #:clean-previous-value 
