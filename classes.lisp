@@ -52,7 +52,7 @@
 
 (defclass config-info-direct-info ()
   ((db :initarg :db
-       :type symbol
+       :type (or symbol cons)
        :reader config-info-db
        :documentation "the database that the config info object is housed in.")
    (place :initarg :place
