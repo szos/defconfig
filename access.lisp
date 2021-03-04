@@ -5,19 +5,29 @@
     (every 'stringp thing)))
 
 (defun place->config-info (place &key (db *default-db*))
+  (declare (type (or symbol cons) db)
+           (type (or symbol cons) place))
   (let ((rdb (if (symbolp db) (symbol-value db) db)))
+    (declare (type cons rdb))
     (if (listp place)
 	(gethash (car place) (car rdb))
 	(gethash place (cdr rdb)))))
 
 (defun %%with-config-info (fn place database policy)
+  (declare (type (member :strict :greedy) policy)
+           (type function fn)
+           (type (or symbol list) place)
+           (type (or keyword symbol cons) database))
   (check-type policy (member :strict :greedy))
   (let ((*setv-permissiveness* policy)
 	(db (cond ((keywordp database) (get-db database))
 		  ((symbolp database) (symbol-value database))
 		  (t database))))
+    (declare (type cons db))
     (funcall fn (restart-case (%fsetv-get-config-info-object
-			       place (if (listp place) (car db) (cdr db)) database)
+			       place
+                               (if (listp place) (car db) (cdr db))
+                               database)
 		  (use-value (new-database)
 		    :test (lambda (c)
 			    (and (typep c 'no-config-found-error)
@@ -39,6 +49,9 @@
 (defun tag-configurable-place (tag place &key (db *default-db*) reclass)
   "Push TAG onto the list of tags for the config-info object associated with 
 PLACE in DB."
+  (declare (type (or string symbol) tag)
+           (type (or symbol list) place)
+           (type (or symbol cons) db))
   (atypecase (place->config-info place :db db)
     (minimal-config-info
      (if reclass
@@ -51,6 +64,9 @@ PLACE in DB."
      (push tag (config-info-tag-list it)))))
 
 (defun config-info-search-tags (tags &key (namespace :both) (db *default-db*))
+  (declare (type list tags)
+           (type keyword namespace)
+           (type cons db))
   (flet ((fmap ()
 	   (let (fobjs)
 	     (maphash (lambda (k v)
@@ -85,6 +101,9 @@ database as returned by make-config-database. the :namespace keyarg should be on
 of :both :accessor or :variable. Note that the namespace keyarg isnt used if term
 is a symbol. Term should be either a string, a list of strings, a symbol, or a
 list of symbols representing an accessor and a place."
+  (declare (type (or string list symbol) term)
+           (type keyword namespace)
+           (type cons db))
   (cond ((stringp term)
 	 (config-info-search-tags (list term) :namespace namespace :db db))
 	((list-of-strings-p term)
@@ -95,6 +114,7 @@ list of symbols representing an accessor and a place."
 (defun search-configurable-objects (term &optional database-key)
   "Returns a list of all configurable objects matching TERM. If DATABASE-KEY is 
 provided, search only in that database."
+  (declare (type (or keyword null) database-key))
   (let ((dbs (if database-key
 		 (list (get-db-var database-key))
 		 (loop for (key (dbsym ahash . vhash)) on *db-plist* by 'cddr

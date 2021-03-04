@@ -7,6 +7,13 @@
     `(let* ((,pred ,(if predicate predicate #'cl::identity))
             (,hash (,(if (listp place) 'car 'cdr) ,(if db db '*default-db*)))
             (,obj (gethash ',place ,hash)))
+       (declare (type function ,pred)
+                (type hash-table ,hash)
+                (type (or minimal-config-info
+                          accessor-config-info
+                          config-info
+                          null)
+                      ,obj))
        (if (or (not ,obj) ,regen-config)
 	   (setf (gethash ',place ,hash)
 		 (make-instance 'minimal-config-info :place ',place
@@ -64,6 +71,9 @@
     `(let* ((,pred ,(if predicate predicate #'cl::identity))
             (,hash (car ,(if db db '*default-db*)))
             (,obj (gethash ',place ,hash)))
+       (declare (type function ,pred)
+                (type hash-table ,hash)
+                (type (or minimal-config-info accessor-config-info null) ,obj))
        (if (or (not ,obj) ,regen)
            (setf (gethash ',place ,hash)
                  (make-instance 'accessor-config-info
@@ -104,6 +114,9 @@
             (,hash (cdr ,(if db db '*default-db*)))
             (,validated (funcall ,pred ,hold))
             (,obj (gethash ',place ,hash)))
+       (declare (type function ,pred)
+                (type hash-table ,hash)
+                (type (or config-info minimal-config-info null) ,obj))
        (unless ,validated
          (error 'invalid-datum-error :place ',place :value ,hold))
        (if (or (not ,obj) ,regen)

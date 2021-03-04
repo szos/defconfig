@@ -12,6 +12,8 @@ use the first object found, but if one isnt found to setf regardless.")
 
 (defun remove-keys (list keys)
   "returns two values - accumulated non-keys and keys "
+  (declare (type list list)
+           (type list keys))
   (labels ((wanted-key-p (thing)
 	     (loop for el in keys
 		   for keys-key = (if (listp el) (car el) el)
@@ -64,11 +66,20 @@ variable via destructuring-bind."
 If ERRORP is true error if VALUE doesnt pass. If ERRORP is nil and VALUE doesnt 
 pass, return INVALID-SYMBOL. Restarts are put in place to provide a value or set
 regardless."
+  (declare (type symbol throwtag)
+           (type (or config-info accessor-config-info minimal-config-info)
+                 config-info-object)
+           (type (or symbol null) invalid-symbol)
+           (type boolean errorp)
+           (type (or symbol list) place)
+           (type (or symbol null) error)
+           (type list extra-args))
   (let ((real-place (or place (config-info-place config-info-object))))
+    (declare (type (or symbol list) real-place))
     (restart-case 
 	(let ((valid? (funcall (config-info-predicate config-info-object)
 			       value)))
-	  (cond (valid? value)
+          (cond (valid? value)
 		(errorp (if error
 			    (apply 'error error
 				   (append extra-args
@@ -133,6 +144,10 @@ regardless."
 (defun %fsetv-get-config-info-object (place hash db &optional setf-symbol)
   "return setf symbol if we want the caller to setf place. setf-symbol only needs
 to be provided if were calling this in a setv expansion."
+  (declare (type (or symbol list) place)
+           (type hash-table hash)
+           (type symbol db)
+           (type (or symbol null) setf-symbol))
   (handler-case 
       (or (gethash (if (listp place)
 		       (car place)
@@ -177,6 +192,11 @@ to be provided if were calling this in a setv expansion."
 		  ;; restarts in place to provide a value or set regardless
 		  (%fsetv-ensure-validity ',block ,config-info-object ,hold
                                           ',invalid-sym (not ,coer) ',place)))
+           (declare (type hash-table ,hash)
+                    (type (or minimal-config-info accessor-config-info
+                              config-info null)
+                          ,config-info-object)
+                    (type (or function null) ,coer))
 	   (if (eql ,validated-value ',invalid-sym)
 	       (%%setv-coerced ,place ,hold ,config-info-object ,coer ',block)
 	       (%setv-ensure-setf ,place ,validated-value ,config-info-object)))))))

@@ -21,6 +21,8 @@
   "add a database to *db-plist* in the correct format of (KEY (VARNAME value)).
 VARNAME is the quoted variable referencing the database, while value is the
 symbol-value of VARNAME. for internal use only"
+  (declare (type keyword key)
+           (type symbol varname))
   (setf *db-plist* (cons key
                          (cons (cons varname
                                      (symbol-value varname))
@@ -28,19 +30,23 @@ symbol-value of VARNAME. for internal use only"
 
 (defun db-key-exists-p (key)
   "return t/nil if KEY denotes a pre-existing db"
+  (declare (type keyword key))
   (if (getf *db-plist* key) t nil))
 
 (defun getdb (key)
   "used internally by defconfig to wrap around getf - think of it as currying getf
 with *db-plist* as the place"
+  (declare (type keyword key))
   (getf *db-plist* key))
 
 (defun get-db (key)
   "get the database associated with KEY"
+  (declare (type keyword key))
   (cdr (getdb key)))
 
 (defun get-db-var (key)
   "get the variable holding the database associated with KEY"
+  (declare (type keyword key))
   (car (getdb key)))
 
 (defun list-dbs ()
@@ -51,6 +57,8 @@ with *db-plist* as the place"
 (defun delete-db (key &optional makunbound)
   "delete the database associated with KEY. if MAKUNBOUND is T, then unbind the 
 symbol holding the database associated with KEY"
+  (declare (type keyword key)
+           (type boolean makunbound))
   (let ((dbvar (get-db-var key)))
     (when (and makunbound dbvar)
       (makunbound dbvar)))
@@ -60,6 +68,8 @@ symbol holding the database associated with KEY"
   "Check that KEY is a keyword and doesnt already denotes a database in
 *db-plist*. If it does signal an error within the context of a use-value restart
 to allow the user to provide a new value to use instead of KEY"
+  (declare (type keyword key)
+           (type symbol var))
   (restart-bind ((use-value
                    (lambda (new-key)
                      (return-from def-defconfig-db-error-check new-key))
