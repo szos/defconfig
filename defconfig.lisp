@@ -18,6 +18,7 @@
 
 (defmacro define-minimal-config (place &key (type :accessor) validator typespec
 					 coercer db regen-config)
+  "define a minimal config object for PLACE and in DB."
   (when (and validator typespec)
     (error "The arguments :VALIDATOR and :TYPESPEC cannot both be supplied"))
   `(define-min ,(if (and (eq type :accessor) (symbolp place))
@@ -31,6 +32,7 @@
      :regen-config ,regen-config))
 
 (defmacro defconfig-minimal (place &rest args)
+  "Define a minimal config, with no value tracking."
   (cond ((consp place)
 	 `(define-minimal-config ,place ,@args))
 	((and (keywordp (car args)) (not (keywordp (cadr args)))) 

@@ -97,18 +97,31 @@ to allow the user to provide a new value to use instead of KEY"
            (error 'database-already-exists-error :key key))
           (t key))))
 
-(defmacro define-defconfig-db (var key &key (parameter t)
+(defmacro define-defconfig-db (var key &key (parameter t) if-exists
                                          (doc "A defconfig database"))
   "define a dynamic variable name VAR to be a defconfig database accessible by
 passing KEY to the function get-db. If PARAMETER is true, create this var with 
 a defparameter form, otherwise use defvar. DOC is the documentation to pass to 
 the def(parameter|var) form."
   (alexandria:with-gensyms (realkey)
-    `(let ((,realkey (def-defconfig-db-error-check ,key ',var)))
+    `(let ((,realkey (,@(case if-exists
+                          (:use '(handler-bind
+                                  ((database-already-exists-error
+                                    (lambda (c)
+                                      (let ((r (find-restart 'continue c)))
+                                        (when r (invoke-restart r))))))))
+                          (:redefine '(handler-bind
+                                       ((database-already-exists-error
+                                         (lambda (c)
+                                           (let ((r (find-restart 'redefine c)))
+                                             (when r (invoke-restart r))))))))
+                          (otherwise '(progn)))
+                      (def-defconfig-db-error-check ,key ',var))))
        (declare (special ,var))
        (when ,realkey
          (,(if parameter 'defparameter 'defvar) ,var (make-config-database) ,doc)
          (add-db-to-plist ,realkey ',var)))))
 
 (define-defconfig-db *default-db* :default
-  :doc "The default database for defconfig")
+  :doc "The default database for defconfig"
+  :if-exists :redefine)
