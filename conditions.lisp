@@ -7,6 +7,8 @@
 to catch all defconfig conditions (such as with handler-case) then config-error 
 should be used."))
 
+(define-condition with-atomic-setv-internal-error (config-error) ())
+
 (define-condition invalid-datum-error (config-error)
   ((place-form :initarg :place :reader invalid-datum-error-place :initform nil)
    (value :initarg :value :reader invalid-datum-error-value :initform nil)
