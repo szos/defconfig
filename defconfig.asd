@@ -7,7 +7,7 @@
   :version "1.1.2"
   :serial t
   :depends-on (#:alexandria
-               #:trivial-cltl2)
+               #-clisp #:trivial-cltl2)
   :components ((:file "package")
 	       (:file "macros")
 	       (:file "database")

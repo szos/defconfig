@@ -254,16 +254,16 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 	   (%atomic-setv-reset ,accumulator)
 	   (return-from ,block-name ,c))))))
 
-(defmacro %atomic-setv (block-name reset-on-errors accumulator &rest args)
+(defmacro %atomic-setv (block-name reset-on-errors accumulator database &rest args)
   "generates a set of calls to %setv-with-reset."
   (declare (special *setv-place-accumulator*))
-  (destructuring-keys (pairs (:db '*default-db*)) args
+  (destructuring-keys (pairs (:db database)) args
     `(progn
        ,@(loop for (p v) on pairs by 'cddr
 	       collect `(%setv-with-reset ,block-name ,reset-on-errors ,accumulator
 					  ,p ,v ,db)))))
 
-(defmacro %with-atomic-setv* ((&key (re-error t) handle-conditions) &body body)
+(defmacro %with-atomic-setv* ((&key (re-error t) handle-conditions db) &body body)
   "This macro utilizes compiler-let to allow rollbacks of accessor stuff. "
   (alexandria:with-gensyms (args block-name c inner-c accumulator)
     `(compiler-let ((*setv-place-accumulator* nil))
@@ -273,19 +273,28 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 				  `(%atomic-setv ,',block-name
 						 ,',handle-conditions
 						 ,',accumulator
+                                                 ,',db
 						 ,@,args)))
 		       (handler-case
-                           (progn ,@body)
-                         (,handle-conditions (,inner-c)
+                           (restart-case (progn ,@body)
+                             (abort-and-reset ()
+                               :report "Exit WITH-ATOMIC-SETV* and reset"
+                               (error 'with-atomic-setv-internal-error))
+                             (abort-without-resetting ()
+                               :report "Exit WITH-ATOMIC-SETV* without resetting"
+                               (return-from ,block-name nil)))
+                         ((or with-atomic-setv-internal-error ,handle-conditions)
+                           (,inner-c)
 			   (%atomic-setv-reset ,accumulator :pop nil)
 			   (return-from ,block-name ,inner-c))))))))
 	 (if (and ,re-error (typep ,c ',handle-conditions))
 	     (error 'setv-wrapped-error :error ,c)
 	     ,c)))))
 
-(defmacro with-atomic-setv* ((&key (re-error t) handle-conditions) &body body)
+(defmacro with-atomic-setv* ((&key (re-error t) handle-conditions db) &body body)
   `(%with-atomic-setv* (:re-error ,re-error
-			:handle-conditions ,(or handle-conditions 'error))
+			:handle-conditions ,(or handle-conditions 'error)
+                        :db ,(or db '*default-db*))
      ,@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -322,8 +331,9 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 	   (%runtime-atomic-setv-reset ,ac :pop t)
 	   (return-from ,block-name ,c))))))
 
-(defmacro %runtime-atomic-setv (accumulator block-name reset-errors &rest args)
-  (destructuring-keys (pairs (:db '*default-db*)) args
+(defmacro %runtime-atomic-setv (accumulator block-name reset-errors database
+                                &rest args)
+  (destructuring-keys (pairs (:db database)) args
     `(progn
        ,@(loop for (p v) on pairs by 'cddr
 	       collect `(%runtime-setv-with-reset ,accumulator
@@ -331,7 +341,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 						  ,reset-errors
 						  ,p ,v ,db)))))
 
-(defmacro with-runtime-atomic-setv ((&key (re-error t) handle-conditions)
+(defmacro with-runtime-atomic-setv ((&key (re-error t) handle-conditions db)
 				    &body body)
   (alexandria:with-gensyms (block-name args c inner-c outer-block accumulator)
     `(block ,outer-block
@@ -341,17 +351,20 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 				  `(%runtime-atomic-setv ,',accumulator
 							 ,',block-name
 							 ,',handle-conditions
+                                                         ,',db
 							 ,@,args)))
 		       (handler-case
 			   (restart-case (progn ,@body)
 			     (abort-and-reset ()
 			       :report "Exit WITH-ATOMIC-SETV and reset everything"
-			       (%runtime-atomic-setv-reset ,accumulator)
-			       (return-from ,outer-block nil))
+			       ;; (%runtime-atomic-setv-reset ,accumulator)
+			       ;; (return-from ,outer-block nil)
+                               (error 'with-atomic-setv-internal-error))
 			     (abort-without-resetting ()
 			       :report "Exit WITH-ATOMIC-SETV without resetting"
 			       (return-from ,outer-block nil)))
-			 (,handle-conditions (,inner-c)
+			 ((or with-atomic-setv-internal-error ,handle-conditions)
+                           (,inner-c)
 			   (%runtime-atomic-setv-reset ,accumulator)
 			   (return-from ,block-name ,inner-c))))))))
 	 (if (and ,re-error (typep ,c ',handle-conditions))
@@ -365,8 +378,7 @@ resignalled. It is generally advisable to use WITH-ATOMIC-SETV instead."
 		  (warn ,c)))
 	       ,c))))))
 
-(defmacro with-atomic-setv ((&key (errorp t) handle-conditions)
-			    &body body)
+(defmacro with-atomic-setv ((&key (errorp t) handle-conditions db) &body body)
   "This macro, upon encountering an error, resets all places encountered within 
 calls to setv to be reset to the value they held before the call to 
 with-atomic-setv. Which errors to reset upon can be controlled with 
@@ -374,5 +386,6 @@ HANDLE-CONDITIONS. If it is nil, it defaults to 'error. If a handled condition i
 encountered, it will be wrapped in SETV-WRAPPED-ERROR, unless RE-ERROR is nil, in 
 which case a warning will be generated and the condition will be returned. "
   `(with-runtime-atomic-setv (:re-error ,errorp
-			      :handle-conditions ,(or handle-conditions 'error))
+			      :handle-conditions ,(or handle-conditions 'error)
+                              :db ,(or db '*default-db*))
      ,@body))
