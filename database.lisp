@@ -124,4 +124,4 @@ the def(parameter|var) form."
 
 (define-defconfig-db *default-db* :default
   :doc "The default database for defconfig"
-  :if-exists :redefine)
+  :if-exists :use)

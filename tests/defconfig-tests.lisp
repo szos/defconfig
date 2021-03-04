@@ -466,3 +466,21 @@
 
 (fiveam:test test-predicateless
   (defconfig *mytester* 'mytester))
+
+(fiveam:test test-w-a-s-use-default-db
+  (setv *bounded-number* 0
+        *other-bounded-number* 0
+        :db *testing-db*)
+  (setv *setv-permissiveness* :strict)
+  (is (and (= *bounded-number* 0)
+           (= *other-bounded-number* 0)))
+  (with-atomic-setv (:db *testing-db*)
+    (setv *bounded-number* 2)
+    (setv *other-bounded-number* 1))
+  (is (and (= *bounded-number* 2)
+           (= *other-bounded-number* 1)))
+  (with-atomic-setv* (:db *testing-db*)
+    (setv *bounded-number* 0)
+    (setv *other-bounded-number* 0))
+  (is (and (= *bounded-number* 0)
+           (= *other-bounded-number* 0))))
