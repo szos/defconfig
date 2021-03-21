@@ -4,7 +4,7 @@
   :description "A configuration system for user exposed variables"
   :author "szos at posteo dot net"
   :license "GPLv3"
-  :version "1.1.2"
+  :version "1.1.3"
   :serial t
   :depends-on (#:alexandria
                #-clisp #:trivial-cltl2)
