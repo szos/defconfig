@@ -146,7 +146,7 @@ regardless."
 to be provided if were calling this in a setv expansion."
   (declare (type (or symbol list) place)
            (type hash-table hash)
-           (type symbol db)
+           (type (or symbol cons) db)
            (type (or symbol null) setf-symbol))
   (handler-case 
       (or (gethash (if (listp place)
