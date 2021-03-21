@@ -2,7 +2,7 @@
 
 (defun generate-valid-values-predicate-string (&key typespec predicate)
   (cond (typespec 
-         (format nil "Valid values must conform to the typespec ~S"
+         (format nil "Valid values must conform to the typespec ~A"
                  typespec))
         (t
          (format nil "Valid values must are tested using ~S"
@@ -88,7 +88,10 @@
               :documentation "The docstring for the place being governed. if a variable it is the same as the variables docstring")
    (valid-values :initarg :valid-values
                  :reader config-info-valid-values-description
-                 :documentation "An explanation of the valid values and predicate function")))
+                 :documentation "An explanation of the valid values and predicate function")
+   (typespec :initform nil
+             :reader config-info-typespec
+             :documentation "When a typespec is provided instead of a validator, this slot will hold it")))
 
 (defclass minimal-config-info (config-info-functions config-info-direct-info) ())
 
@@ -115,8 +118,11 @@
 (defmethod initialize-instance :after ((obj accessor-config-info) &key)
   (cond ((slot-bound-p obj 'valid-values)
          (unless (typep (slot-value obj 'valid-values) 'string)
-           (setf (slot-value obj 'valid-values)
-                 (generate-vv-string (slot-value obj 'valid-values) obj))))
+           (psetf (slot-value obj 'valid-values)
+                  (generate-vv-string (slot-value obj 'valid-values) obj)
+                  (slot-value obj 'typespec)
+                  (let ((ts (slot-value obj 'valid-values)))
+                    (if (eq (car ts) 'typespec) (cadadr ts) ts)))))
         (t (setf (slot-value obj 'valid-values)
                  "Unspecified"))))
 

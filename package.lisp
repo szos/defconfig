@@ -37,6 +37,7 @@
            #:config-info-tags 
 	   #:config-info-documentation
 	   #:config-info-valid-values-description
+           #:config-info-typespec
 
 	   ;; errors
 	   #:config-error
