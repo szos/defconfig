@@ -140,7 +140,8 @@ the previous value. TEST is used to check if a reset is needed.")
 		      (config-info-default-value object))))
       (unless (funcall test curval newval)
 	(setf (symbol-value (config-info-place object)) newval
-	      (config-info-prev-value object) curval))))
+	      (config-info-prev-value object) curval)
+        newval)))
 
   (:method ((place list) &key db test previous-value)
     (declare (ignore test previous-value))
