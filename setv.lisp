@@ -94,7 +94,7 @@ regardless."
       (continue ()
         :report (lambda (s)
                   (format s "Return NIL without setting ~A" real-place))
-        (throw throwtag nil))
+        (and throwtag (throw throwtag nil)))
       (use-value (provided)
 	:test (lambda (c) (typep c 'invalid-datum-error))
 	:report (lambda (s)
@@ -123,7 +123,7 @@ regardless."
 
 (defmacro %%setv-coerced (place value config-object coercer throwtag)
   (alexandria:with-gensyms (coer-hold validated-value invalid-sym)
-    `(if ,coercer 
+    `(if ,coercer
 	 (let* ((,coer-hold (funcall ,coercer ,value))
 		(,validated-value
 		  (%fsetv-ensure-validity ,throwtag ,config-object ,coer-hold
@@ -208,6 +208,30 @@ objects in. "
   (destructuring-keys (pairs (:db '*default-db*)) args
     `(progn ,@(loop for (p v) on pairs by 'cddr
 		    collect `(%%setv ,p ,v ,db)))))
+
+;; (defun %setvc-c (symbol value conf coercer)
+;;   (if coercer
+;;       (let* ((hold (funcall coercer value))
+;;              (valid )))))
+
+;; (defun %setvc (symbol value db)
+;;   (let* ((s (gensym)) (i (gensym))
+;;          (hash (cdr db))
+;;          (conf (let ((obj (%fsetv-get-config-info-object symbol hash db s)))
+;;                  (if (eql obj s)
+;;                      (progn (setf (symbol-value symbol) value)
+;;                             (return-from %setvc value))
+;;                      obj)))
+;;          (coer (config-info-coercer conf))
+;;          (validated (%fsetv-ensure-validity nil conf value i (not coer) symbol)))
+;;     (if (eql validated i)
+;;         (%setvc-c symbol value conf coer)
+;;         (setf (symbol-value symbol) validated))))
+
+;; (defmacro setv-calculated (&rest args)
+;;   (destructuring-keys (pairs (:db '*default-db*)) args
+;;     `(progn ,@(loop for (p v) on pairs by 'cddr
+;;                     collect `(%setvc ,p ,v ,db)))))
 
 (defmacro setv-atomic (&rest args)
   "this version of setv saves the original value of the places being set, and 
