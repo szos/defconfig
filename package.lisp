@@ -21,6 +21,7 @@
 	   #:reset-computed-place
 	   #:clean-previous-value 
 	   #:search-configurable-objects
+           #:config-info-search-name
 	   #:tag-configurable-place
 
 	   ;; readers
