@@ -41,7 +41,7 @@
 (defclass config-info-functions ()
   ((predicate :initarg :predicate
               :initform #'identity
-              :type (function (*) boolean)
+              :type (function (t) boolean)
               :reader config-info-predicate
               :documentation "The predicate against which valid values are checked")
    (coercer :initarg :coercer
